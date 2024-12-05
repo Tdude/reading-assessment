@@ -1,0 +1,150 @@
+/* ra-public.css */
+.collapsible-content p,
+.entry-content p {
+  font-size: 1.4rem;
+}
+
+.ra-audio-recorder {
+  background: #f5f5f5;
+  border-radius: 8px;
+  padding: 20px;
+  max-width: 800px;
+  margin: 20px 0;
+}
+
+.ra-controls {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 20px;
+}
+
+.ra-button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 15px 30px;
+  border: none;
+  border-radius: 25px;
+  background: #fff;
+  color: #333;
+  cursor: pointer;
+  font-size: 14px;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.ra-button:hover:not(:disabled) {
+  background: #f0f0f0;
+  transform: translateY(-1px);
+  box-shadow: 0 3px 6px rgba(0, 0, 0, 0.15);
+}
+
+.ra-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  background: #e0e0e0;
+}
+
+.ra-button.record {
+  background: #ff4444;
+  color: white;
+}
+
+.ra-button.record:hover:not(:disabled) {
+  background: #ff2222;
+}
+
+.ra-button.stop {
+  background: #444;
+  color: white;
+}
+
+.ra-button.play {
+  background: #4caf50;
+  color: white;
+}
+
+.ra-button.play:hover:not(:disabled) {
+  background: #fefefe;
+}
+
+.ra-button.upload {
+  background: #2196f3;
+  color: white;
+}
+
+.ra-button.upload:hover:not(:disabled) {
+  background: #e0e0e0;
+}
+
+.ra-button.trim {
+  background: #9c27b0;
+  color: white;
+}
+
+.ra-button.trim:hover:not(:disabled) {
+  background: #7b2fa2;
+}
+
+.ra-icon {
+  font-size: 16px;
+  line-height: 1;
+}
+
+.ra-waveform {
+  background: white;
+  border-radius: 4px;
+  padding: 10px;
+  margin: 10px 0;
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.1);
+  min-height: 100px;
+}
+
+.ra-status {
+  margin: 10px 0 0 0;
+  padding: 8px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.8);
+  font-size: 14px;
+  color: #666;
+}
+
+/* Collapsible components */
+.ra-collapsible {
+  margin-bottom: 1em;
+}
+
+.ra-collapsible-title {
+  padding: 10px 15px;
+  background-color: #f5f5f5;
+  border: 1px solid #ddd;
+  margin: 0;
+  cursor: pointer;
+  position: relative;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.ra-collapsible-title:hover {
+  background-color: #ebebeb;
+}
+
+.ra-collapsible-icon {
+  transition: transform 0.3s ease;
+}
+
+.ra-collapsible-title.active .ra-collapsible-icon {
+  transform: rotate(180deg);
+}
+
+.ra-collapsible-content {
+  display: none;
+  padding: 15px;
+  border: 1px solid #ddd;
+  border-top: none;
+}
+
+.ra-collapsible-content.show {
+  display: block;
+}
