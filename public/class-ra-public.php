@@ -16,6 +16,43 @@ class Reading_Assessment_Public {
         $this->version = $version;
     }
 
+    /**
+     * Handle subscriber login redirect
+     */
+    public function subscriber_login_redirect($redirect_to, $requested_redirect_to, $user) {
+        if ($user && is_object($user) && !is_wp_error($user)) {
+            if (in_array('subscriber', $user->roles)) {
+                return home_url('/inspelningsmodul?login=success');
+            }
+        }
+        return $redirect_to;
+    }
+
+    /**
+     * Display login success message
+     */
+    public function show_login_message() {
+        if (isset($_GET['login']) && $_GET['login'] === 'success') {
+            ?>
+            <div id="login-overlay" class="ra-overlay">
+                <div id="login-message" class="ra-login-message">
+                    Nu är du inloggad.
+                </div>
+            </div>
+            <script>
+                setTimeout(function() {
+                    var overlay = document.getElementById('login-overlay');
+                    overlay.style.opacity = '0';
+                    setTimeout(function() {
+                        overlay.remove();
+                    }, 500);
+                }, 2000);
+            </script>
+            <?php
+        }
+    }
+
+
     public function enqueue_styles() {
         wp_enqueue_style(
             $this->plugin_name . '-public',
@@ -35,38 +72,42 @@ class Reading_Assessment_Public {
             true
         );
     
-        // Include WaveSurfer.js from CDN
-        wp_enqueue_script(
-            'wavesurfer',
-            'https://unpkg.com/wavesurfer.js@7/dist/wavesurfer.min.js',
-            [],
-            '7.0.0',
-            true
-        );
-    
-        // Include Regions plugin from CDN
-        wp_enqueue_script(
-            'wavesurfer-regions',
-            'https://unpkg.com/wavesurfer.js@7/dist/plugins/regions.min.js',
-            ['wavesurfer'],
-            '7.0.0',
-            true
-        );
-    
-        wp_enqueue_script(
-            'ra-recorder',
-            plugins_url('/js/ra-recorder.js', __FILE__),
-            ['wavesurfer', 'wavesurfer-regions'],
-            $this->version,
-            true
-        );
-    
-        // Pass AJAX URL to JavaScript
-        wp_localize_script(
-            'ra-recorder',
-            'raAjax',
-            ['ajax_url' => admin_url('admin-ajax.php')]
-        );
+        // Include (on slug inspelningsmodul) WaveSurfer.js from CDN
+        global $post;
+        if (isset($post) && $post->post_name === 'inspelningsmodul') {
+            wp_enqueue_script(
+                'wavesurfer',
+                'https://unpkg.com/wavesurfer.js@7/dist/wavesurfer.min.js',
+                [],
+                '7.0.0',
+                true
+            );
+        
+            // Include Regions plugin from CDN
+            wp_enqueue_script(
+                'wavesurfer-regions',
+                'https://unpkg.com/wavesurfer.js@7/dist/plugins/regions.min.js',
+                ['wavesurfer'],
+                '7.0.0',
+                true
+            );
+            
+        
+            wp_enqueue_script(
+                'ra-recorder',
+                plugins_url('/js/ra-recorder.js', __FILE__),
+                ['wavesurfer', 'wavesurfer-regions'],
+                $this->version,
+                true
+            );
+        
+            // Pass AJAX URL to JavaScript
+            wp_localize_script(
+                'ra-recorder',
+                'raAjax',
+                ['ajax_url' => admin_url('admin-ajax.php')]
+            );
+        }
     }
 
 
@@ -153,7 +194,6 @@ class Reading_Assessment_Public {
         <?php
         return ob_get_clean();
     }
-
 
     public function register_shortcodes() {
         add_shortcode('ra_display_passage', [$this, 'shortcode_display_passage']);
