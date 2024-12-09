@@ -1,0 +1,68 @@
+msgid ""
+msgstr ""
+"Project-Id-Version: Reading Assessment\n"
+"POT-Creation-Date: 2024-12-04\n"
+"PO-Revision-Date: 2024-12-09 23:03+0100\n"
+"Last-Translator: Tdude <tibbecodes@gmail.com>\n"
+"Language-Team: \n"
+"Language: en\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"X-Generator: Poedit 3.5\n"
+
+#: ra-admin-dashboard.php:15
+msgid "Senaste inspelningarna"
+msgstr "Latest recordings"
+
+#: ra-admin-dashboard.php:35
+msgid "Användare"
+msgstr "User"
+
+#: ra-admin-dashboard.php:36
+msgid "Inspelning"
+msgstr "Recording"
+
+#: ra-admin-dashboard.php:37
+msgid "Längd"
+msgstr "Duration"
+
+#: ra-admin-dashboard.php:38
+msgid "Datum"
+msgstr "Date"
+
+#: ra-admin-dashboard.php:48
+msgid "Din webbläsare stöder inte ljuduppspelning."
+msgstr "Your browser doesn’t support sound recording"
+
+#: ra-admin-dashboard.php:51
+msgid "Ljudfil saknas"
+msgstr "A soundfile is missing"
+
+#: ra-admin-dashboard.php:63
+msgid "Inga inspelningar registrerade än."
+msgstr "No sound recording yet."
+
+#: ra-admin-dashboard.php:70
+msgid "Statistik"
+msgstr "Stats"
+
+#: ra-admin-dashboard.php:89
+msgid "Antal sparade inläsningar"
+msgstr "Number of saved text recordings"
+
+#: ra-admin-dashboard.php:91
+msgid "Antal unika användare"
+msgstr "Number of unique users"
+
+#: ra-admin-dashboard.php:93
+msgid "Slutförda bedömningar"
+msgstr "Finished assessments"
+
+#: ra-admin-dashboard.php:95
+msgid "Medelresultat"
+msgstr "Average score"
+
+#: ra-admin-dashboard.php:97
+msgid "Total inspelningstid"
+msgstr "Total recording time"
