@@ -128,7 +128,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ra_passage_nonce'])) 
                                     <?php _e('Hittade ingen ljudfil', 'reading-assessment'); ?>
                                 <?php endif; ?>
                             </td>
-                            <td><?php echo esc_html($passage->time_limit); ?> <?php _e('seconds', 'reading-assessment'); ?></td>
+                            <td><?php echo esc_html($passage->time_limit); ?> <?php _e('sekunder', 'reading-assessment'); ?></td>
                             <td><?php echo esc_html($passage->difficulty_level); ?></td>
                             <td>
                                 <?php if ($stats && $stats->total_attempts > 0): ?>
@@ -187,12 +187,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ra_passage_nonce'])) 
                         <label for="content"><?php _e('Textinnehåll', 'reading-assessment'); ?></label>
                     </th>
                     <td>
-                        <?php
-                        wp_editor('', 'content', array(
-                            'media_buttons' => false,
-                            'textarea_rows' => 10,
-                            'teeny' => true
-                        ));
+                        <?php // wpautop makes visual mode create html
+                            wp_editor('', 'content', array(
+                                'media_buttons' => false,
+                                'textarea_rows' => 10,
+                                'teeny' => true,
+                                'tinymce' => array(
+                                    'forced_root_block' => 'p',
+                                    'remove_linebreaks' => false,
+                                    'convert_newlines_to_brs' => true,
+                                    'remove_redundant_brs' => false
+                                )
+                            ));
                         ?>
                     </td>
                 </tr>
