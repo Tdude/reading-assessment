@@ -52,11 +52,15 @@
       const $form = $(`#${formId}`);
       $form[0].reset();
 
-      if (options.editor && typeof tinyMCE !== "undefined") {
-        const editor = tinyMCE.get(options.editor);
-        if (editor) editor.setContent("");
+      if (options.editor) {
+        // Handle visual editor
+        if (typeof tinyMCE !== "undefined") {
+          const editor = tinyMCE.get(options.editor);
+          if (editor) editor.setContent("");
+        }
+        // Handle text editor
+        $(`#${options.editor}`).val("");
       }
-
       if (options.titleElement) {
         $(options.titleElement).text(options.defaultTitle || "");
       }
