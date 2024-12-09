@@ -73,6 +73,10 @@ class Reading_Assessment {
         
         // Also allow non-logged-in users to view passages
         $this->loader->add_action('wp_ajax_nopriv_ra_get_passage', $plugin_public, 'ajax_get_passage');
+
+         // Add login redirection hooks
+        $this->loader->add_filter('login_redirect', $plugin_public, 'subscriber_login_redirect', 10, 3);
+        $this->loader->add_action('wp_footer', $plugin_public, 'show_login_message');
     }
 
     public function run() {
