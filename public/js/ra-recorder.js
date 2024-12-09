@@ -8,12 +8,6 @@ document.addEventListener("DOMContentLoaded", () => {
   const trimBtn = document.getElementById("trim-audio");
   const status = document.getElementById("status");
 
-  // Check for WaveSurfer
-  if (!window.WaveSurfer) {
-    console.error("WaveSurfer is not loaded.");
-    return;
-  }
-
   // Initialize WaveSurfer with RegionsPlugin
   wavesurfer = WaveSurfer.create({
     container: "#waveform",
@@ -31,9 +25,55 @@ document.addEventListener("DOMContentLoaded", () => {
     })
   );
 
-  console.log("WaveSurfer initialized with regions plugin");
+  // Function to trim audio
+  async function trimAudio(audioBlob, start, end) {
+    const audioContext = new AudioContext();
+    const audioBuffer = await new Response(audioBlob)
+      .arrayBuffer()
+      .then((arrayBuffer) => audioContext.decodeAudioData(arrayBuffer));
 
-  // Handle MediaRecorder
+    // Calculate start and end samples
+    const startSample = Math.floor(start * audioBuffer.sampleRate);
+    const endSample = Math.floor(end * audioBuffer.sampleRate);
+    const frameCount = endSample - startSample;
+
+    // Create new buffer for trimmed audio
+    const trimmedBuffer = audioContext.createBuffer(
+      audioBuffer.numberOfChannels,
+      frameCount,
+      audioBuffer.sampleRate
+    );
+
+    // Copy the trimmed portion
+    for (let channel = 0; channel < audioBuffer.numberOfChannels; channel++) {
+      const channelData = audioBuffer.getChannelData(channel);
+      const trimmedData = trimmedBuffer.getChannelData(channel);
+      for (let i = 0; i < frameCount; i++) {
+        trimmedData[i] = channelData[startSample + i];
+      }
+    }
+
+    // Convert trimmed buffer back to blob
+    const mediaStreamDest = audioContext.createMediaStreamDestination();
+    const sourceNode = audioContext.createBufferSource();
+    sourceNode.buffer = trimmedBuffer;
+    sourceNode.connect(mediaStreamDest);
+    sourceNode.start();
+
+    const mediaRecorder = new MediaRecorder(mediaStreamDest.stream);
+    const chunks = [];
+
+    return new Promise((resolve) => {
+      mediaRecorder.ondataavailable = (e) => chunks.push(e.data);
+      mediaRecorder.onstop = () => {
+        const trimmedBlob = new Blob(chunks, { type: "audio/webm" });
+        resolve(trimmedBlob);
+      };
+      mediaRecorder.start();
+      setTimeout(() => mediaRecorder.stop(), (end - start) * 1000 + 100);
+    });
+  }
+
   startBtn.addEventListener("click", async () => {
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
       alert("Det verkar som din webbläsare inte stöder inspelning tyvärr.");
@@ -46,40 +86,11 @@ document.addEventListener("DOMContentLoaded", () => {
     recorder = new MediaRecorder(mediaStream, { mimeType: "audio/webm" });
     const dataChunks = [];
 
-    recorder.ondataavailable = (e) => {
-      console.log("Data chunk received: ", e.data);
-      dataChunks.push(e.data);
-    };
+    recorder.ondataavailable = (e) => dataChunks.push(e.data);
 
     recorder.onstop = () => {
-      console.log("All data chunks: ", dataChunks);
-
-      if (dataChunks.length === 0) {
-        console.error("No audio data captured.");
-        status.textContent = "Recording failed: No audio data.";
-        return;
-      }
-
       audioBlob = new Blob(dataChunks, { type: "audio/webm" });
-
-      if (audioBlob) {
-        console.log("Blob size: ", audioBlob.size);
-        console.log("Blob type: ", audioBlob.type);
-
-        const debugLink = document.createElement("a");
-        debugLink.href = URL.createObjectURL(audioBlob);
-        debugLink.download = "debug.webm";
-        debugLink.textContent = "Download Debug Audio";
-        document.body.appendChild(debugLink);
-      }
-
       const audioUrl = URL.createObjectURL(audioBlob);
-
-      const audioElement = document.createElement("audio");
-      audioElement.src = audioUrl;
-      audioElement.controls = true;
-      document.body.appendChild(audioElement);
-
       wavesurfer.load(audioUrl);
 
       status.textContent =
@@ -105,49 +116,54 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   });
 
-  uploadBtn.addEventListener("click", () => {
+  uploadBtn.addEventListener("click", async () => {
     if (!audioBlob) return;
 
-    // Disable the button immediately
     uploadBtn.disabled = true;
-    // Optionally change text to show it's processing
     uploadBtn.textContent = "Laddar upp...";
 
-    const formData = new FormData();
-    formData.append("action", "ra_save_recording");
-    formData.append("audio_file", audioBlob, "recording.webm");
+    try {
+      // Get the current region
+      const regions = regionsPlugin.getRegions();
+      let blobToUpload = audioBlob;
 
-    fetch(raAjax.ajax_url, {
-      method: "POST",
-      body: formData,
-      credentials: "same-origin",
-    })
-      .then((response) => response.json())
-      .then((data) => {
-        if (data.success) {
-          status.textContent = "Ljudfilen sparades. Hör och häpna!";
-          // Optionally disable other controls after successful upload
-          stopBtn.disabled = true;
-          startBtn.disabled = false;
-        } else {
-          status.textContent =
-            "Misslyckades att ladda upp: " +
-            (data.data?.message || "Unknown error");
-          // Re-enable on failure
-          uploadBtn.disabled = false;
-          uploadBtn.textContent = "Ladda upp";
+      if (regions.length > 0) {
+        const region = regions[0];
+        // Only trim if the region doesn't cover the entire audio
+        if (region.start > 0 || region.end < wavesurfer.getDuration()) {
+          blobToUpload = await trimAudio(audioBlob, region.start, region.end);
         }
-      })
-      .catch((error) => {
-        console.error("Upload error:", error);
-        status.textContent =
-          "Det uppstod ett fel vid uppladdningen: " + error.message;
-        // Re-enable on error
-        uploadBtn.disabled = false;
-        uploadBtn.textContent = "Ladda upp";
+      }
+
+      const formData = new FormData();
+      formData.append("action", "ra_save_recording");
+      formData.append("audio_file", blobToUpload, "recording.webm");
+
+      const response = await fetch(raAjax.ajax_url, {
+        method: "POST",
+        body: formData,
+        credentials: "same-origin",
       });
+
+      const data = await response.json();
+
+      if (data.success) {
+        status.textContent = "Ljudfilen sparades. Hör och häpna!";
+        stopBtn.disabled = true;
+        startBtn.disabled = false;
+      } else {
+        throw new Error(data.data?.message || "Unknown error");
+      }
+    } catch (error) {
+      console.error("Upload error:", error);
+      status.textContent =
+        "Det uppstod ett fel vid uppladdningen: " + error.message;
+      uploadBtn.disabled = false;
+      uploadBtn.textContent = "Ladda upp";
+    }
   });
 
+  // Rest of the event listeners remain the same...
   playbackBtn.addEventListener("click", () => {
     if (wavesurfer.isPlaying()) {
       wavesurfer.pause();
@@ -162,7 +178,6 @@ document.addEventListener("DOMContentLoaded", () => {
     try {
       const regions = regionsPlugin.getRegions();
       if (regions.length === 0) {
-        // If no region exists, create one for the entire track
         const duration = wavesurfer.getDuration();
         regionsPlugin.addRegion({
           start: 0,
@@ -187,7 +202,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
   wavesurfer.on("ready", () => {
     try {
-      // Create initial region covering the entire track
       const duration = wavesurfer.getDuration();
       regionsPlugin.addRegion({
         start: 0,
