@@ -27,7 +27,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ra_passage_nonce'])) 
     if (!empty($_FILES['audio_file']['name'])) {
         $upload_dir = wp_upload_dir();
         $ra_upload_dir = $upload_dir['basedir'] . '/reading-assessment';
-        
+
         // Create directory if it doesn't exist
         if (!file_exists($ra_upload_dir)) {
             if (!wp_mkdir_p($ra_upload_dir)) {
@@ -104,7 +104,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ra_passage_nonce'])) 
                     </tr>
                 </thead>
                 <tbody>
-                    <?php foreach ($passages as $passage): 
+                    <?php foreach ($passages as $passage):
                         $stats = $ra_db->get_passage_statistics($passage->id);
                     ?>
                         <tr>
@@ -132,12 +132,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ra_passage_nonce'])) 
                             <td><?php echo esc_html($passage->difficulty_level); ?></td>
                             <td>
                                 <?php if ($stats && $stats->total_attempts > 0): ?>
-                                    <?php 
+                                    <?php
                                     printf(
                                         __('Antal försök: %1$d<br>Medelresultat: %2$.1f%%', 'reading-assessment'),
                                         $stats->total_attempts,
                                         $stats->average_score
-                                    ); 
+                                    );
                                     ?>
                                 <?php else: ?>
                                     <?php _e('Inga försök här än', 'reading-assessment'); ?>
@@ -145,7 +145,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ra_passage_nonce'])) 
                             </td>
                             <td><?php echo esc_html(date_i18n(get_option('date_format'), strtotime($passage->created_at))); ?></td>
                             <td>
-                                <button class="button ra-edit-passage" 
+                                <button class="button ra-edit-passage"
                                     data-id="<?php echo esc_attr($passage->id); ?>"
                                     data-title="<?php echo esc_attr($passage->title); ?>"
                                     data-content="<?php echo esc_attr($passage->content); ?>"
@@ -172,7 +172,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ra_passage_nonce'])) 
         <form id="ra-passage-form" method="post" enctype="multipart/form-data">
             <?php wp_nonce_field('ra_passage_action', 'ra_passage_nonce'); ?>
             <input type="hidden" name="passage_id" id="passage_id" value="">
-            
+
             <table class="form-table">
                 <tr>
                     <th scope="row">
@@ -216,7 +216,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ra_passage_nonce'])) 
                         <label for="difficulty_level"><?php _e('Svårighetsgrad', 'reading-assessment'); ?></label>
                     </th>
                     <td>
-                        <input type="number" id="difficulty_level" name="difficulty_level" 
+                        <input type="number" id="difficulty_level" name="difficulty_level"
                             value="1" min="1" max="20" step="1">
                         <p class="description"><?php _e('Svårighetsgrad 1-20 där 20 är svårast.', 'reading-assessment'); ?></p>
                     </td>

@@ -7,7 +7,7 @@
  */
 
 class Reading_Assessment_Evaluator {
-    
+
     private $db;
 
     public function __construct() {
@@ -54,7 +54,7 @@ class Reading_Assessment_Evaluator {
         // Evaluate each answer
         foreach ($questions as $question) {
             $total_weight += $question->weight;
-            
+
             if (isset($answers[$question->id])) {
                 $is_correct = $this->check_answer($question->correct_answer, $answers[$question->id]);
                 $question_score = $is_correct ? $question->weight : 0;
@@ -135,7 +135,7 @@ class Reading_Assessment_Evaluator {
     private function calculate_similarity($str1, $str2) {
         $leven = levenshtein($str1, $str2);
         $max_len = max(strlen($str1), strlen($str2));
-        
+
         if ($max_len === 0) {
             return 100;
         }

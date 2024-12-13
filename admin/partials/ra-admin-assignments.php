@@ -49,7 +49,7 @@ $passages = $ra_db->get_all_passages();
         <h2><?php _e('Tilldela text', 'reading-assessment'); ?></h2>
         <form method="post">
             <?php wp_nonce_field('ra_assignment_action', 'ra_assignment_nonce'); ?>
-            
+
             <table class="form-table">
                 <tr>
                     <th scope="row">
@@ -92,7 +92,7 @@ $passages = $ra_db->get_all_passages();
             </table>
 
             <p class="submit">
-                <input type="submit" name="submit" id="submit" class="button button-primary" 
+                <input type="submit" name="submit" id="submit" class="button button-primary"
                        value="<?php _e('Tilldela text', 'reading-assessment'); ?>">
             </p>
         </form>
@@ -125,8 +125,8 @@ $passages = $ra_db->get_all_passages();
                             <td><?php echo esc_html($assignment->passage_title); ?></td>
                             <td><?php echo esc_html(date_i18n(get_option('date_format'), strtotime($assignment->assigned_at))); ?></td>
                             <td>
-                                <?php 
-                                echo $assignment->due_date 
+                                <?php
+                                echo $assignment->due_date
                                     ? esc_html(date_i18n(get_option('date_format'), strtotime($assignment->due_date)))
                                     : __('Inget slutdatum', 'reading-assessment');
                                 ?>

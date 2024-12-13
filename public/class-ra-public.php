@@ -71,7 +71,7 @@ class Reading_Assessment_Public {
             $this->version,
             true
         );
-    
+
         // Include (on slug inspelningsmodul) WaveSurfer.js from CDN
         global $post;
         if (isset($post) && $post->post_name === 'inspelningsmodul') {
@@ -82,7 +82,7 @@ class Reading_Assessment_Public {
                 '7.0.0',
                 true
             );
-        
+
             // Include Regions plugin from CDN
             wp_enqueue_script(
                 'wavesurfer-regions',
@@ -91,8 +91,8 @@ class Reading_Assessment_Public {
                 '7.0.0',
                 true
             );
-            
-        
+
+
             wp_enqueue_script(
                 'ra-recorder',
                 plugins_url('/js/ra-recorder.js', __FILE__),
@@ -100,7 +100,7 @@ class Reading_Assessment_Public {
                 $this->version,
                 true
             );
-        
+
             // Pass AJAX URL to JavaScript
             wp_localize_script(
                 'ra-recorder',
@@ -120,12 +120,12 @@ class Reading_Assessment_Public {
                     <span class="ra-icon">⚫</span>
                     <span class="ra-label">Spela in</span>
                 </button>
-                
+
                 <button id="stop-recording" class="ra-button stop" disabled>
                     <span class="ra-icon">⬛</span>
                     <span class="ra-label">Stopp</span>
                 </button>
-                
+
                 <button id="playback" class="ra-button play" disabled>
                     <span class="ra-icon">▶</span>
                     <span class="ra-label">Spela</span>
@@ -141,31 +141,31 @@ class Reading_Assessment_Public {
                     <span class="ra-label">Ladda upp</span>
                 </button>
             </div>
-                    
+
             <div id="waveform" class="ra-waveform"></div>
             <p id="status" class="ra-status"></p>
         </div>
         <?php
         return ob_get_clean();
     }
-    
+
     // Here is where we show the text list tied to the user ID. An admin gives the user appropriate texts.
     public function shortcode_display_passage($atts) {
         $current_user_id = get_current_user_id();
         if (!$current_user_id) {
             return '<p>' . __('Du måste vara inloggad för att se texter', 'reading-assessment') . '</p>';
         }
-    
+
         $current_user = wp_get_current_user();
         $nickname = $current_user->nickname ?: $current_user->display_name;
-    
+
         $db = new Reading_Assessment_Database();
         $assigned_passages = $db->get_user_assigned_passages($current_user_id);
-    
+
         if (empty($assigned_passages)) {
             return '<p>' . __('Inga texter har tilldelats dig än', 'reading-assessment') . '</p>';
         }
-    
+
         ob_start();
         ?>
         <div class="ra-user-info">
@@ -206,33 +206,33 @@ class Reading_Assessment_Public {
             wp_send_json_error(['message' => 'User not logged in']);
             return;
         }
-    
+
         if (!isset($_FILES['audio_file'])) {
             wp_send_json_error(['message' => 'No audio file received']);
             return;
         }
-    
+
         // Set up directory structure
         $upload_dir = wp_upload_dir();
         $year = date('Y');
         $month = date('m');
         $target_dir = $upload_dir['basedir'] . '/reading-assessment/' . $year . '/' . $month;
-    
+
         // Create directories if they don't exist
         if (!file_exists($target_dir)) {
             wp_mkdir_p($target_dir);
         }
-    
+
         // Generate unique filename
         $file_name = 'recording_' . time() . '.webm';
         $file_path = $target_dir . '/' . $file_name;
-        
+
         // Store relative path for database
         $relative_path = '/reading-assessment/' . $year . '/' . $month . '/' . $file_name;
-    
+
         if (move_uploaded_file($_FILES['audio_file']['tmp_name'], $file_path)) {
             chmod($file_path, 0644);
-            
+
             // Save to database
             global $wpdb;
             $result = $wpdb->insert(
@@ -246,7 +246,7 @@ class Reading_Assessment_Public {
                 ),
                 array('%d', '%d', '%s', '%d', '%s')
             );
-    
+
             if ($result === false) {
                 wp_send_json_error([
                     'message' => 'Failed to save recording data to database',
@@ -254,7 +254,7 @@ class Reading_Assessment_Public {
                 ]);
                 return;
             }
-    
+
             wp_send_json_success([
                 'message' => 'File saved successfully',
                 'file_path' => $relative_path,
@@ -263,8 +263,8 @@ class Reading_Assessment_Public {
             ]);
 
             // Possibly need to add this for the admin list when saving new recordings
-            // wp_cache_delete('ra_recordings_count');
-            // wp_cache_delete('ra_recordings_page_1');
+            wp_cache_delete('ra_recordings_count');
+            wp_cache_delete('ra_recordings_page_1');
 
         } else {
             wp_send_json_error([

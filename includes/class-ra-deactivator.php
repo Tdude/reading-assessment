@@ -42,7 +42,7 @@ class Reading_Assessment_Deactivator {
             // Remove uploaded files
             $upload_dir = wp_upload_dir();
             $ra_upload_dir = $upload_dir['basedir'] . '/reading-assessment';
-            
+
             if (is_dir($ra_upload_dir)) {
                 self::delete_directory($ra_upload_dir);
             }

@@ -52,7 +52,7 @@ class Reading_Assessment_Database {
                 'created_at' => current_time('mysql'),
                 'audio_file' => isset($data['audio_file']) ? $data['audio_file'] : null
             );
-            
+
             $insert_format = array(
                 '%s', // title
                 '%s', // content
@@ -171,7 +171,7 @@ class Reading_Assessment_Database {
 
             if ($responses > 0) {
                 return new WP_Error(
-                    'has_responses', 
+                    'has_responses',
                     __('Cannot delete question because it has responses. Consider deactivating it instead.', 'reading-assessment')
                 );
             }
@@ -201,7 +201,7 @@ class Reading_Assessment_Database {
     public function get_question($question_id) {
         return $this->db->get_row(
             $this->db->prepare(
-                "SELECT q.*, p.title as passage_title 
+                "SELECT q.*, p.title as passage_title
                 FROM {$this->db->prefix}ra_questions q
                 JOIN {$this->db->prefix}ra_passages p ON q.passage_id = p.id
                 WHERE q.id = %d",
@@ -219,7 +219,7 @@ class Reading_Assessment_Database {
     public function get_question_statistics($question_id) {
         return $this->db->get_row(
             $this->db->prepare(
-                "SELECT 
+                "SELECT
                     COUNT(*) as total_responses,
                     SUM(CASE WHEN is_correct = 1 THEN 1 ELSE 0 END) as correct_responses,
                     AVG(score) as average_score
@@ -231,6 +231,36 @@ class Reading_Assessment_Database {
     }
 
     /**
+     * Get recording by ID
+     *
+     * @param int $recording_id Recording ID
+     * @return object|null Recording object or null if not found
+     */
+    public function get_recording($recording_id) {
+        error_log('Getting recording: ' . $recording_id);
+
+        $recording = $this->db->get_row(
+            $this->db->prepare(
+                "SELECT r.*, p.title as passage_title, u.display_name as user_name
+                FROM {$this->db->prefix}ra_recordings r
+                LEFT JOIN {$this->db->prefix}ra_passages p ON r.passage_id = p.id
+                LEFT JOIN {$this->db->users} u ON r.user_id = u.ID
+                WHERE r.id = %d",
+                $recording_id
+            )
+        );
+
+        error_log('Get recording query result: ' . ($recording ? 'found' : 'not found'));
+
+        if ($recording) {
+            $recording->full_audio_path = $this->get_upload_path() . $recording->audio_file_path;
+            error_log('Full audio path: ' . $recording->full_audio_path);
+        }
+
+        return $recording;
+    }
+
+    /**
      * Save recording data with more detailed information
      *
      * @param array $data Recording data including file info and duration
@@ -239,13 +269,13 @@ class Reading_Assessment_Database {
     public function save_recording($data) {
         $user_id = get_current_user_id();
         $recording_path = $this->get_recording_path($user_id);
-        
+
         if (!file_exists($recording_path)) {
             wp_mkdir_p($recording_path);
         }
 
         $result = $this->db->insert(
-            $this->db->prefix . 'ydzbRQP_ra_recordings',
+            $this->db->prefix . 'ra_recordings',  // Removed extra prefix
             array(
                 'user_id' => $user_id,
                 'passage_id' => isset($data['passage_id']) ? $data['passage_id'] : 0,
@@ -259,32 +289,10 @@ class Reading_Assessment_Database {
         if ($result === false) {
             return new WP_Error('db_error', __('Failed to save recording data.', 'reading-assessment'));
         }
-        
+
         return $this->db->insert_id;
     }
 
-    /**
-     * Get recording by ID
-     *
-     * @param int $recording_id Recording ID
-     * @return object|null Recording object or null if not found
-     */
-    public function get_recording($recording_id) {
-        $recording = $this->db->get_row(
-            $this->db->prepare(
-                "SELECT r.*, p.title as passage_title, u.display_name as user_name
-                 FROM {$this->db->prefix}ydzbRQP_ra_recordings r
-                 LEFT JOIN {$this->db->prefix}ydzbRQP_ra_passages p ON r.passage_id = p.id
-                 LEFT JOIN {$this->db->prefix}users u ON r.user_id = u.ID
-                 WHERE r.id = %d",
-                $recording_id
-            )
-        );
-        if ($recording) {
-            $recording->full_audio_path = $this->get_upload_path() . $recording->audio_file_path;
-        }
-        return $recording;
-    }
 
     /**
      * Get recordings for a user
@@ -296,11 +304,11 @@ class Reading_Assessment_Database {
     public function get_user_recordings($user_id, $limit = 10) {
         return $this->db->get_results(
             $this->db->prepare(
-                "SELECT r.*, p.title as passage_title 
+                "SELECT r.*, p.title as passage_title
                  FROM {$this->db->prefix}ra_recordings r
                  LEFT JOIN {$this->db->prefix}ra_passages p ON r.passage_id = p.id
-                 WHERE r.user_id = %d 
-                 ORDER BY r.created_at DESC 
+                 WHERE r.user_id = %d
+                 ORDER BY r.created_at DESC
                  LIMIT %d",
                 $user_id,
                 $limit
@@ -361,27 +369,42 @@ class Reading_Assessment_Database {
      * @return bool True on success, false on failure
      */
     public function delete_recording($recording_id) {
+        error_log('Attempting to delete recording: ' . $recording_id);
+
         // Get recording info to delete file
         $recording = $this->get_recording($recording_id);
         if (!$recording) {
+            error_log('Recording not found for deletion');
             return false;
         }
-    
+
         // Delete file if it exists
         if ($recording->audio_file_path) {
-            $upload_dir = wp_upload_dir();
-            $file_path = $upload_dir['basedir'] . '/reading-assessment/' . $recording->audio_file_path;
+            $file_path = $this->get_upload_path() . $recording->audio_file_path;
+            error_log('Attempting to delete file: ' . $file_path);
+
             if (file_exists($file_path)) {
-                unlink($file_path);
+                if (!@unlink($file_path)) {
+                    error_log('Failed to delete file: ' . $file_path);
+                } else {
+                    error_log('File deleted successfully');
+                }
+            } else {
+                error_log('File does not exist: ' . $file_path);
             }
         }
-    
+
         // Delete database record
-        return $this->db->delete(
+        $result = $this->db->delete(
             $this->db->prefix . 'ra_recordings',
             array('id' => $recording_id),
             array('%d')
-        ) !== false;
+        );
+
+        error_log('Database deletion result: ' . ($result !== false ? 'success' : 'failed') .
+                ' Last DB error: ' . $this->db->last_error);
+
+        return $result !== false;
     }
 
     /**
@@ -411,7 +434,7 @@ class Reading_Assessment_Database {
 
         return $this->db->get_row(
             $this->db->prepare(
-                "SELECT 
+                "SELECT
                     COUNT(*) as total_recordings,
                     COUNT(DISTINCT user_id) as unique_users,
                     COUNT(DISTINCT passage_id) as unique_passages,
@@ -442,12 +465,12 @@ class Reading_Assessment_Database {
 
     /**
      * Get all passages
-     * 
+     *
      * @return array Array of passage objects
      */
     public function get_all_passages() {
         return $this->db->get_results(
-            "SELECT * FROM {$this->db->prefix}ra_passages 
+            "SELECT * FROM {$this->db->prefix}ra_passages
              ORDER BY created_at DESC"
         );
     }
@@ -490,7 +513,7 @@ class Reading_Assessment_Database {
     public function get_user_assigned_passages($user_id) {
         return $this->db->get_results(
             $this->db->prepare(
-                "SELECT p.*, a.assigned_at, a.due_date, a.status 
+                "SELECT p.*, a.assigned_at, a.due_date, a.status
                 FROM {$this->db->prefix}ra_passages p
                 JOIN {$this->db->prefix}ra_assignments a ON p.id = a.passage_id
                 WHERE a.user_id = %d
@@ -529,8 +552,8 @@ class Reading_Assessment_Database {
      */
     public function get_all_assignments() {
         return $this->db->get_results(
-            "SELECT a.*, 
-                    u.display_name as user_name, 
+            "SELECT a.*,
+                    u.display_name as user_name,
                     p.title as passage_title
             FROM {$this->db->prefix}ra_assignments a
             JOIN {$this->db->users} u ON a.user_id = u.ID
@@ -575,11 +598,11 @@ class Reading_Assessment_Database {
     public function get_user_assessments($user_id, $limit = 10) {
         return $this->db->get_results(
             $this->db->prepare(
-                "SELECT a.*, p.title as passage_title 
-                FROM {$this->db->prefix}ra_assessments a 
-                JOIN {$this->db->prefix}ra_passages p ON a.passage_id = p.id 
-                WHERE a.user_id = %d 
-                ORDER BY a.created_at DESC 
+                "SELECT a.*, p.title as passage_title
+                FROM {$this->db->prefix}ra_assessments a
+                JOIN {$this->db->prefix}ra_passages p ON a.passage_id = p.id
+                WHERE a.user_id = %d
+                ORDER BY a.created_at DESC
                 LIMIT %d",
                 $user_id,
                 $limit
@@ -672,25 +695,71 @@ class Reading_Assessment_Database {
     public function get_passage_statistics($passage_id) {
         $stats = $this->db->get_row(
             $this->db->prepare(
-                "SELECT 
+                "SELECT
                     COUNT(*) as total_attempts,
                     AVG(normalized_score) as average_score,
                     AVG(total_score) as total_score,
                     COUNT(DISTINCT recording_id) as total_recordings
-                FROM {$this->db->prefix}ra_assessments 
+                FROM {$this->db->prefix}ra_assessments
                 WHERE recording_id IN (
-                    SELECT id FROM {$this->db->prefix}ra_recordings 
+                    SELECT id FROM {$this->db->prefix}ra_recordings
                     WHERE passage_id = %d
                 )",
                 $passage_id
             )
         );
-    
+
         return $stats ? $stats : (object)[
             'total_attempts' => 0,
             'average_score' => 0,
             'total_score' => 0,
             'total_recordings' => 0
         ];
+    }
+
+    /**
+     * Save an assessment for a recording
+     *
+     * @param array $data {
+     *     Assessment data to save
+     *
+     *     @type int    $recording_id     ID of the recording being assessed
+     *     @type float  $total_score      Raw score given by assessor (1-20)
+     *     @type float  $normalized_score Normalized score for the assessment
+     *     @type string $completed_at     MySQL datetime of assessment completion
+     * }
+     * @return int|WP_Error Returns the assessment ID on success, WP_Error on failure
+     */
+    public function save_assessment($data) {
+        global $wpdb;
+
+        // Verify recording exists
+        $recording = $wpdb->get_row($wpdb->prepare(
+            "SELECT id FROM {$wpdb->prefix}ra_recordings WHERE id = %d",
+            $data['recording_id']
+        ));
+
+        if (!$recording) {
+            return new WP_Error(
+                'invalid_recording',
+                __('Inspelningen kunde inte hittas', 'reading-assessment')
+            );
+        }
+
+        // Insert assessment
+        $result = $wpdb->insert(
+            $wpdb->prefix . 'ra_assessments',
+            $data,
+            ['%d', '%f', '%f', '%s']
+        );
+
+        if ($result === false) {
+            return new WP_Error(
+                'db_error',
+                __('Kunde inte spara bedömningen', 'reading-assessment')
+            );
+        }
+
+        return $wpdb->insert_id;
     }
 }

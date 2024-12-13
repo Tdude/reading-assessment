@@ -19,13 +19,19 @@
 
     // AJAX wrapper
     ajaxRequest: function (action, data, successCallback, errorCallback) {
+      // Use data.nonce if provided, otherwise fall back to default nonce
+      const nonce = data.nonce || raStrings.nonce;
+
+      // Remove nonce from data if it exists to avoid sending it twice
+      const { nonce: _, ...cleanData } = data;
+
       $.ajax({
         url: raStrings.ajaxurl,
         type: "POST",
         data: {
           action: action,
-          nonce: raStrings.nonce,
-          ...data,
+          nonce: nonce,
+          ...cleanData,
         },
         success: function (response) {
           if (response.success) {
@@ -142,11 +148,6 @@
           e.preventDefault();
           RAUtils.passages.edit($(this).data("id"));
         });
-
-        $(".ra-delete-passage").on("click", function (e) {
-          e.preventDefault();
-          RAUtils.passages.delete($(this).data("id"), $(this));
-        });
       },
     },
 
@@ -228,6 +229,39 @@
         });
       },
     },
+
+    // Recording handling
+    recordings: {
+      delete: function (recordingId, $button) {
+        if (RAUtils.confirm(raStrings.confirmDelete)) {
+          $button.prop("disabled", true);
+          RAUtils.ajaxRequest(
+            "ra_delete_recording",
+            {
+              recording_id: recordingId,
+            },
+            function (response) {
+              console.log("Delete success:", response); // Debug line
+              $button.closest("tr").fadeOut(400, function () {
+                $(this).remove();
+              });
+            },
+            function (errorMessage) {
+              console.error("Delete error:", errorMessage); // Debug line
+              alert(errorMessage);
+              $button.prop("disabled", false);
+            }
+          );
+        }
+      },
+      initActions: function () {
+        $(".delete-recording").on("click", function (e) {
+          e.preventDefault();
+          console.log("Delete button clicked"); // Debug line
+          RAUtils.recordings.delete($(this).data("recording-id"), $(this));
+        });
+      },
+    },
   };
 
   // Initialize when document is ready
@@ -273,5 +307,130 @@
         });
       }
     });
+
+    // Assessment scoring of the soundbytes
+    const modal = $("#assessment-modal");
+
+    $(".add-assessment").click(function () {
+      const recordingId = $(this).data("recording-id");
+      $("#assessment-recording-id").val(recordingId);
+      modal.show();
+    });
+
+    // Close on 'x' button
+    $(".ra-modal-close").click(function () {
+      modal.hide();
+    });
+
+    // Close when clicking outside the modal
+    $(".ra-modal").click(function (e) {
+      // If the click was directly on the modal background (not its children)
+      if (e.target === this) {
+        modal.hide();
+      }
+    });
+
+    // Close on ESC key
+    $(document).keydown(function (e) {
+      if (e.key === "Escape" && modal.is(":visible")) {
+        modal.hide();
+      }
+    });
+
+    $("#assessment-form").submit(function (e) {
+      e.preventDefault();
+
+      const formData = {
+        action: "ra_save_assessment",
+        recording_id: $("#assessment-recording-id").val(),
+        score: $("#assessment-score").val(),
+      };
+
+      RAUtils.ajaxRequest(
+        "ra_save_assessment",
+        formData,
+        function () {
+          modal.hide();
+          location.reload();
+        },
+        function (errorMessage) {
+          alert(errorMessage || "Ett fel uppstod");
+        }
+      );
+    });
+
+    // Initialize recordings if we're on the dashboard
+    if ($(".delete-recording").length) {
+      RAUtils.recordings.initActions();
+    }
+
+    // SHow admin interaction stats
+    // Only initialize if tracking is enabled and we're on the dashboard
+    if (!$(".ra-stats-section").length) {
+      return;
+    }
+
+    let lastActivity = Date.now();
+    let clickCount = 0;
+    let isActive = false;
+    const INACTIVE_TIMEOUT = 10000; // 10 seconds
+    const SAVE_INTERVAL = 60000; // 1 minute
+
+    function handleActivity() {
+      lastActivity = Date.now();
+      isActive = true;
+    }
+
+    function handleClick() {
+      handleActivity();
+      clickCount++;
+      console.log("Click detected, total clicks:", clickCount);
+    }
+
+    // Separate click handler from other activity handlers
+    $(document).on("click", handleClick);
+    $(document).on("mousemove keypress scroll", handleActivity);
+
+    function saveInteractions() {
+      const currentTime = Date.now();
+      const activeTime = isActive ? (currentTime - lastActivity) / 1000 : 0;
+      const idleTime = (SAVE_INTERVAL - activeTime * 1000) / 1000;
+
+      console.log("Saving interactions:", {
+        clicks: clickCount,
+        activeTime: Math.round(activeTime),
+        idleTime: Math.round(idleTime),
+      });
+
+      RAUtils.ajaxRequest(
+        "ra_save_interactions",
+        {
+          clicks: clickCount,
+          active_time: Math.round(activeTime),
+          idle_time: Math.round(idleTime),
+        },
+        function (response) {
+          console.log("Save response:", response);
+          clickCount = 0;
+          location.reload();
+        },
+        function (error) {
+          console.error("Save error:", error);
+        }
+      );
+    }
+
+    // Bind events
+    $(document).on("click mousemove keypress scroll", handleActivity);
+
+    // Check for inactivity
+    setInterval(function () {
+      if (Date.now() - lastActivity > INACTIVE_TIMEOUT) {
+        isActive = false;
+      }
+    }, INACTIVE_TIMEOUT);
+
+    // Save periodically
+    setInterval(saveInteractions, SAVE_INTERVAL);
   });
 })(jQuery);

@@ -24,14 +24,14 @@
     private static function upgrade_database_schema() {
         global $wpdb;
         $current_db_version = get_option('ra_db_version', '1.0');
-        
+
         // Upgrade to 1.1 - Add difficulty_level
         if (version_compare($current_db_version, '1.1', '<')) {
             $row = $wpdb->get_results("SHOW COLUMNS FROM {$wpdb->prefix}ra_passages LIKE 'difficulty_level'");
             if (empty($row)) {
-                $wpdb->query("ALTER TABLE {$wpdb->prefix}ra_passages 
+                $wpdb->query("ALTER TABLE {$wpdb->prefix}ra_passages
                              ADD COLUMN difficulty_level int(11) DEFAULT 1");
-                
+
                 if ($wpdb->last_error) {
                     error_log("Failed to add difficulty_level column: " . $wpdb->last_error);
                     return false;
@@ -39,11 +39,11 @@
             }
             update_option('ra_db_version', '1.1');
         }
-    
+
         // Upgrade to 1.2 - Add assignments table
         if (version_compare($current_db_version, '1.2', '<')) {
             $charset_collate = $wpdb->get_charset_collate();
-            
+
             $sql = "CREATE TABLE IF NOT EXISTS {$wpdb->prefix}ra_assignments (
                 id bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT,
                 user_id bigint(20) UNSIGNED NOT NULL,
@@ -58,16 +58,36 @@
                 CONSTRAINT fk_assignment_user FOREIGN KEY (user_id) REFERENCES {$wpdb->users} (ID) ON DELETE CASCADE,
                 CONSTRAINT fk_assignment_passage FOREIGN KEY (passage_id) REFERENCES {$wpdb->prefix}ra_passages (id) ON DELETE CASCADE
             ) {$charset_collate}";
-    
+
             require_once(ABSPATH . 'wp-admin/includes/upgrade.php');
             dbDelta($sql);
-    
+
             if ($wpdb->last_error) {
                 error_log("Failed to create assignments table: " . $wpdb->last_error);
                 return false;
             }
-    
+
             update_option('ra_db_version', '1.2');
+        }
+
+        // Upgrade to 1.3 - Add admin interactions table columns
+        if (version_compare($current_db_version, '1.3', '<')) {
+            $table_name = $wpdb->prefix . 'ra_admin_interactions';
+
+            // Check if columns exist
+            $row = $wpdb->get_results("SHOW COLUMNS FROM {$table_name} LIKE 'clicks'");
+            if (empty($row)) {
+                $wpdb->query("ALTER TABLE {$table_name}
+                            ADD COLUMN clicks int DEFAULT 0,
+                            ADD COLUMN active_time int DEFAULT 0,
+                            ADD COLUMN idle_time int DEFAULT 0");
+
+                if ($wpdb->last_error) {
+                    error_log("Failed to add interaction columns: " . $wpdb->last_error);
+                    return false;
+                }
+            }
+            update_option('ra_db_version', '1.3');
         }
     }
 
@@ -95,7 +115,7 @@
                 PRIMARY KEY (id),
                 KEY created_by (created_by)
             ) {$charset_collate}",
-        
+
             'ra_recordings' => "CREATE TABLE IF NOT EXISTS {$wpdb->prefix}ra_recordings (
                 id bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT,
                 user_id bigint(20) UNSIGNED NOT NULL,
@@ -158,7 +178,20 @@
                 KEY passage_id (passage_id),
                 CONSTRAINT fk_assignment_user FOREIGN KEY (user_id) REFERENCES {$wpdb->users} (ID) ON DELETE CASCADE,
                 CONSTRAINT fk_assignment_passage FOREIGN KEY (passage_id) REFERENCES {$wpdb->prefix}ra_passages (id) ON DELETE CASCADE
-            ) {$charset_collate};"
+            ) {$charset_collate};",
+            'ra_admin_interactions' => "CREATE TABLE IF NOT EXISTS {$wpdb->prefix}ra_admin_interactions (
+                id bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT,
+                user_id bigint(20) UNSIGNED NOT NULL,
+                clicks int DEFAULT 0,
+                active_time int DEFAULT 0,
+                idle_time int DEFAULT 0,
+                created_at datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                PRIMARY KEY (id),
+                KEY user_id (user_id),
+                KEY created_at (created_at),
+                CONSTRAINT fk_interaction_user FOREIGN KEY (user_id)
+                    REFERENCES {$wpdb->users} (ID) ON DELETE CASCADE
+            ) {$charset_collate}"
         );
 
         // Create tables

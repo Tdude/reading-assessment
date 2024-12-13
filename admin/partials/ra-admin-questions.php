@@ -34,7 +34,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ra_question_nonce']))
 }
 
 // Get selected passage ID from query string or first passage
-$selected_passage_id = isset($_GET['passage_id']) ? intval($_GET['passage_id']) : 
+$selected_passage_id = isset($_GET['passage_id']) ? intval($_GET['passage_id']) :
                       ($passages ? $passages[0]->id : 0);
 
 // Get questions for selected passage
@@ -63,7 +63,7 @@ $questions = $selected_passage_id ? $ra_db->get_questions_for_passage($selected_
             <input type="hidden" name="page" value="reading-assessment-questions">
             <select name="passage_id" id="passage_id" onchange="this.form.submit()">
                 <?php foreach ($passages as $passage): ?>
-                    <option value="<?php echo esc_attr($passage->id); ?>" 
+                    <option value="<?php echo esc_attr($passage->id); ?>"
                             <?php selected($selected_passage_id, $passage->id); ?>>
                         <?php echo esc_html($passage->title); ?>
                     </option>
@@ -75,7 +75,7 @@ $questions = $selected_passage_id ? $ra_db->get_questions_for_passage($selected_
     <!-- Questions list -->
     <div class="ra-questions-list">
         <h2><?php _e('Frågor för vald text', 'reading-assessment'); ?></h2>
-        
+
         <?php if ($questions): ?>
             <table class="wp-list-table widefat fixed striped">
                 <thead>
@@ -93,14 +93,14 @@ $questions = $selected_passage_id ? $ra_db->get_questions_for_passage($selected_
                             <td><?php echo esc_html($question->correct_answer); ?></td>
                             <td><?php echo esc_html($question->weight); ?></td>
                             <td>
-                                <button class="button ra-edit-question" 
+                                <button class="button ra-edit-question"
                                         data-id="<?php echo esc_attr($question->id); ?>"
                                         data-question="<?php echo esc_attr($question->question_text); ?>"
                                         data-answer="<?php echo esc_attr($question->correct_answer); ?>"
                                         data-weight="<?php echo esc_attr($question->weight); ?>">
                                     <?php _e('Ändra', 'reading-assessment'); ?>
                                 </button>
-                                <button class="button ra-delete-question" 
+                                <button class="button ra-delete-question"
                                         data-id="<?php echo esc_attr($question->id); ?>">
                                     <?php _e('Radera', 'reading-assessment'); ?>
                                 </button>
@@ -128,7 +128,7 @@ $questions = $selected_passage_id ? $ra_db->get_questions_for_passage($selected_
                         <label for="question_text"><?php _e('Fråga', 'reading-assessment'); ?></label>
                     </th>
                     <td>
-                        <input type="text" id="question_text" name="question_text" 
+                        <input type="text" id="question_text" name="question_text"
                                class="large-text" required>
                     </td>
                 </tr>
@@ -137,7 +137,7 @@ $questions = $selected_passage_id ? $ra_db->get_questions_for_passage($selected_
                         <label for="correct_answer"><?php _e('Korrekt svar', 'reading-assessment'); ?></label>
                     </th>
                     <td>
-                        <input type="text" id="correct_answer" name="correct_answer" 
+                        <input type="text" id="correct_answer" name="correct_answer"
                                class="large-text" required>
                     </td>
                 </tr>
@@ -146,7 +146,7 @@ $questions = $selected_passage_id ? $ra_db->get_questions_for_passage($selected_
                         <label for="weight"><?php _e('Svårighetsgrad', 'reading-assessment'); ?></label>
                     </th>
                     <td>
-                        <input type="number" id="weight" name="weight" value="1" 
+                        <input type="number" id="weight" name="weight" value="1"
                             min="1" max="20" step="1" required>
                         <p class="description">
                             <?php _e('Svårighetsgrad 1-20 där 20 är svårast', 'reading-assessment'); ?>
@@ -156,7 +156,7 @@ $questions = $selected_passage_id ? $ra_db->get_questions_for_passage($selected_
             </table>
 
             <p class="submit">
-                <input type="submit" name="submit" id="submit" class="button button-primary" 
+                <input type="submit" name="submit" id="submit" class="button button-primary"
                        value="<?php _e('Spara fråga', 'reading-assessment'); ?>">
                 <button type="button" id="ra-cancel-edit" class="button" style="display:none;">
                     <?php _e('Ångra', 'reading-assessment'); ?>

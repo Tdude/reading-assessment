@@ -25,7 +25,7 @@ $question_stats = $stats->get_question_statistics($date_limit, $passage_id);
 
 <div class="wrap">
     <h1><?php echo esc_html(get_admin_page_title()); ?></h1>
-    
+
     <!-- Filters -->
     <div class="ra-results-container">
         <div class="ra-results-filters">
@@ -34,7 +34,7 @@ $question_stats = $stats->get_question_statistics($date_limit, $passage_id);
                 <select name="passage_id">
                     <option value=""><?php _e('Alla texter', 'reading-assessment'); ?></option>
                     <?php foreach ($stats->get_all_passages() as $passage): ?>
-                        <option value="<?php echo esc_attr($passage->id); ?>" 
+                        <option value="<?php echo esc_attr($passage->id); ?>"
                                 <?php selected($passage_id, $passage->id); ?>>
                             <?php echo esc_html($passage->title); ?>
                         </option>
@@ -164,7 +164,7 @@ class RA_Statistics {
 
         return $this->db->get_row(
             $this->db->prepare(
-                "SELECT 
+                "SELECT
                     COUNT(DISTINCT r.id) as total_recordings,
                     COUNT(DISTINCT r.user_id) as unique_students,
                     AVG(a.normalized_score) as avg_normalized_score,
@@ -185,10 +185,10 @@ class RA_Statistics {
      */
     public function get_passage_statistics($date_limit = '') {
         $where = $date_limit ? 'WHERE r.created_at >= %s' : '';
-        
+
         return $this->db->get_results(
             $this->db->prepare(
-                "SELECT 
+                "SELECT
                     p.title,
                     COUNT(DISTINCT r.id) as recording_count,
                     AVG(a.normalized_score) as avg_score,
@@ -228,7 +228,7 @@ class RA_Statistics {
 
         return $this->db->get_results(
             $this->db->prepare(
-                "SELECT 
+                "SELECT
                     q.question_text,
                     p.title as passage_title,
                     COUNT(resp.id) as times_answered,
@@ -252,8 +252,8 @@ class RA_Statistics {
      */
     public function get_all_passages() {
         return $this->db->get_results(
-            "SELECT id, title 
-             FROM {$this->db->prefix}ra_passages 
+            "SELECT id, title
+             FROM {$this->db->prefix}ra_passages
              ORDER BY title ASC"
         );
     }

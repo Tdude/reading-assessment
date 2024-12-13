@@ -126,18 +126,21 @@ document.addEventListener("DOMContentLoaded", () => {
       // Get the current region
       const regions = regionsPlugin.getRegions();
       let blobToUpload = audioBlob;
+      let duration = wavesurfer.getDuration(); // Get the duration
 
       if (regions.length > 0) {
         const region = regions[0];
         // Only trim if the region doesn't cover the entire audio
         if (region.start > 0 || region.end < wavesurfer.getDuration()) {
           blobToUpload = await trimAudio(audioBlob, region.start, region.end);
+          duration = region.end - region.start; // Update duration for trimmed audio
         }
       }
 
       const formData = new FormData();
       formData.append("action", "ra_save_recording");
       formData.append("audio_file", blobToUpload, "recording.webm");
+      formData.append("duration", duration); // Add duration to form data
 
       const response = await fetch(raAjax.ajax_url, {
         method: "POST",

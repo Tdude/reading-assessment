@@ -7,7 +7,7 @@
  */
 
 class Reading_Assessment_Recorder {
-    
+
     private $upload_dir;
     private $allowed_mime_types;
     private $max_file_size; // in bytes
@@ -23,7 +23,7 @@ class Reading_Assessment_Recorder {
             'audio/mpeg'
         );
         $this->max_file_size = 10 * 1024 * 1024; // 10MB
-        
+
         // Create upload directory if it doesn't exist
         if (!file_exists($this->upload_dir)) {
             wp_mkdir_p($this->upload_dir);

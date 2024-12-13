@@ -1,9 +1,9 @@
 /* File: admin/css/ra-admin.css */
 .ra-dashboard-widgets {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-  gap: 20px;
-  margin-top: 20px;
+  gap: 1vw;
+  margin-top: 2vh;
+  grid-template-columns: minmax(300px, 2fr) minmax(300px, 1fr);
 }
 
 .ra-widget {
@@ -104,7 +104,7 @@
 /* Update the stats-container styling */
 .stats-container {
   display: flex;
-  flex-direction: row-reverse; /* This puts the pie chart on the right */
+  flex-direction: column-reverse; /* This puts the pie chart below */
   align-items: flex-start;
   gap: 20px;
   flex-wrap: wrap; /* This allows items to wrap on small screens */
@@ -187,12 +187,20 @@
 .two-cols {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 30px;
-  margin-top: 20px;
+  gap: 3vw;
+  margin-top: 2vh;
+}
+
+.main-sidebar-cols {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 3vw;
+  margin-top: 2vh;
 }
 
 @media (max-width: 768px) {
-  .two-cols {
+  .two-cols,
+  .main-sidebar-cols {
     grid-template-columns: 1fr;
   }
 }
@@ -230,4 +238,84 @@
 
 .two-cols div:nth-child(2) {
   flex: 1;
+}
+
+.ra-modal {
+  display: none;
+  position: fixed;
+  z-index: 1000;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.5);
+}
+
+.ra-modal-content {
+  background-color: #fff;
+  margin: 15% auto;
+  padding: 20px;
+  border: 1px solid #888;
+  width: 50%;
+  max-width: 500px;
+  position: relative;
+}
+
+.ra-modal-close {
+  position: absolute;
+  right: 10px;
+  top: 5px;
+  font-size: 20px;
+  cursor: pointer;
+}
+
+.form-field {
+  margin-bottom: 15px;
+}
+
+.form-field label {
+  display: block;
+  margin-bottom: 5px;
+}
+
+/* Button alignment and base styles */
+.button-container {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.wp-core-ui .button.add-assessment,
+.wp-core-ui .button.delete-recording {
+  margin-left: 10px;
+  min-width: 80px;
+}
+
+/* Delete button specific styles */
+.wp-core-ui .button.delete-recording {
+  color: #fff;
+  border-color: #dc3545;
+  background: #dc3545;
+}
+
+.wp-core-ui .button.delete-recording:hover,
+.wp-core-ui .button.delete-recording:focus {
+  color: #fff;
+  border-color: #bd2130;
+  background: #c82333;
+}
+
+/* LUSa button specific styles */
+.wp-core-ui .button.add-assessment {
+  color: #fff;
+  border-color: #2271b1;
+  background: #2271b1;
+}
+
+.wp-core-ui .button.add-assessment:hover,
+.wp-core-ui .button.add-assessment:focus {
+  color: #fff;
+  border-color: #135e96;
+  background: #135e96;
 }
