@@ -4,7 +4,12 @@ if (!defined('WPINC')) {
     die;
 }
 
-// Get database instance
+
+global $wpdb;
+$test_query = "SELECT COUNT(*) as total FROM {$wpdb->prefix}ra_recordings";
+$total_recordings = $wpdb->get_var($test_query);
+
+// Get db instance
 $ra_db = new Reading_Assessment_Database();
 
 // Handle form submission
@@ -14,7 +19,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ra_passage_nonce'])) 
     }
 
     // Debug output
-    error_log('Form submitted with data: ' . print_r($_POST, true));
+    //error_log('Form submitted with data: ' . print_r($_POST, true));
 
     $passage_data = array(
         'title' => sanitize_text_field($_POST['title']),
@@ -43,7 +48,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ra_passage_nonce'])) 
             if (move_uploaded_file($_FILES['audio_file']['tmp_name'], $file_path)) {
                 $passage_data['audio_file'] = $file_name;
             } else {
-                error_log('Failed to move uploaded file to: ' . $file_path);
+                //error_log('Failed to move uploaded file to: ' . $file_path);
                 $error_message = __('Failed to upload audio file', 'reading-assessment');
             }
         }
@@ -60,7 +65,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ra_passage_nonce'])) 
 
         if (is_wp_error($result)) {
             $error_message = $result->get_error_message();
-            error_log('Passage creation/update error: ' . $error_message);
+            //error_log('Passage creation/update error: ' . $error_message);
         } else {
             $success_message = __('Text saved successfully.', 'reading-assessment');
         }
@@ -88,6 +93,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ra_passage_nonce'])) 
         <h2><?php _e('Sparade texter', 'reading-assessment'); ?></h2>
         <?php
         $passages = $ra_db->get_all_passages(); // We need to add this method to the database class
+
+        add_action('admin_notices', function() {
+            echo '<div class="notice notice-info is-dismissible">';
+            echo '<p>' . __('Debug: Reading Assessment passages page loaded', 'reading-assessment') . '</p>';
+            echo '</div>';
+        });
         ?>
 
         <?php if ($passages): ?>
@@ -95,10 +106,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ra_passage_nonce'])) 
                 <thead>
                     <tr>
                         <th><?php _e('Titel', 'reading-assessment'); ?></th>
-                        <th><?php _e('Ljudfil', 'reading-assessment'); ?></th>
+                        <th><?php _e('Antal inspelningar', 'reading-assessment'); ?></th>
                         <th><?php _e('Tidsgräns', 'reading-assessment'); ?></th>
                         <th><?php _e('Svårighetsgrad', 'reading-assessment'); ?></th>
-                        <th><?php _e('Statistik', 'reading-assessment'); ?></th>
+                        <th><?php _e('Inläsningar', 'reading-assessment'); ?></th>
                         <th><?php _e('Skapad', 'reading-assessment'); ?></th>
                         <th><?php _e('Aktivitet', 'reading-assessment'); ?></th>
                     </tr>
@@ -106,6 +117,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ra_passage_nonce'])) 
                 <tbody>
                     <?php foreach ($passages as $passage):
                         $stats = $ra_db->get_passage_statistics($passage->id);
+                        // Add debug output
+                        //error_log('Processing passage ID: ' . $passage->id);
+                        // Get recording count directly with a simple query
+                        $recording_count = $ra_db->get_passage_recording_count($passage->id);
+                        //error_log('Recording count for passage ' . $passage->id . ': ' . $recording_count);
                     ?>
                         <tr>
                             <td>
@@ -116,16 +132,30 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ra_passage_nonce'])) 
                                 </strong>
                             </td>
                             <td>
-                                <?php if ($passage->audio_file): ?>
-                                    <?php
-                                    $upload_dir = wp_upload_dir();
-                                    $audio_url = $upload_dir['baseurl'] . '/reading-assessment/' . $passage->audio_file;
-                                    ?>
-                                    <audio controls style="max-width: 200px;">
-                                        <source src="<?php echo esc_url($audio_url); ?>" type="audio/mpeg">
-                                    </audio>
+                                <?php
+                                global $wpdb;
+                                // Use direct table name for debugging
+                                $recording_count = $wpdb->get_var($wpdb->prepare(
+                                    "SELECT COUNT(*) FROM {$wpdb->prefix}ra_recordings
+                                    WHERE passage_id = %d",
+                                    $passage->id
+                                ));
+
+                                if ($recording_count > 0): ?>
+                                    <a href="<?php echo esc_url(add_query_arg(array(
+                                        'page' => 'reading-assessment',
+                                        'passage_filter' => $passage->id
+                                    ), admin_url('admin.php'))); ?>"
+                                    class="recording-count-link">
+                                        <?php printf(
+                                            _n('%d inspelning', '%d inspelningar', $recording_count, 'reading-assessment'),
+                                            $recording_count
+                                        ); ?>
+                                    </a>
                                 <?php else: ?>
-                                    <?php _e('Hittade ingen ljudfil', 'reading-assessment'); ?>
+                                    <span class="no-recordings">
+                                        <?php _e('Inga inspelningar', 'reading-assessment'); ?>
+                                    </span>
                                 <?php endif; ?>
                             </td>
                             <td><?php echo esc_html($passage->time_limit); ?> <?php _e('sekunder', 'reading-assessment'); ?></td>
@@ -134,7 +164,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ra_passage_nonce'])) 
                                 <?php if ($stats && $stats->total_attempts > 0): ?>
                                     <?php
                                     printf(
-                                        __('Antal försök: %1$d<br>Medelresultat: %2$.1f%%', 'reading-assessment'),
+                                        __('Antal försök: %1$d<br>Medelresultat: %2$.1f £', 'reading-assessment'),
                                         $stats->total_attempts,
                                         $stats->average_score
                                     );
