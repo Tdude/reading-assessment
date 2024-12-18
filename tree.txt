@@ -10,8 +10,9 @@
 │       ├── ra-admin-dashboard.php
 │       ├── ra-admin-passages.php
 │       ├── ra-admin-questions.php
+│       ├── ra-admin-recordings.php
+│       ├── ra-admin-repair.php
 │       └── ra-admin-results.php
-├── cd
 ├── includes
 │   ├── class-i18n.php
 │   ├── class-ra-activator.php
@@ -23,8 +24,6 @@
 │   ├── class-ra-recorder.php
 │   └── class-reading-assessment.php
 ├── languages
-│   ├── reading-assessment-en.mo
-│   ├── reading-assessment-en.po
 │   ├── reading-assessment-sv_SE.po
 │   └── reading-assessment.pot
 ├── public
