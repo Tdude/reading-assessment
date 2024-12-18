@@ -41,14 +41,12 @@ class Reading_Assessment {
 
     private function define_admin_hooks() {
         $plugin_admin = new Reading_Assessment_Admin($this->get_plugin_name(), $this->get_version());
-
-        // Basic admin hooks
         $this->loader->add_action('admin_enqueue_scripts', $plugin_admin, 'enqueue_styles');
         $this->loader->add_action('admin_enqueue_scripts', $plugin_admin, 'enqueue_scripts');
         $this->loader->add_action('admin_menu', $plugin_admin, 'add_menu_pages');
         $this->loader->add_action('admin_init', $plugin_admin, 'register_settings');
 
-        // AJAX handlers for admin
+        // AJAX handlers for ADMIN
         $this->loader->add_action('wp_ajax_ra_get_passage', $plugin_admin, 'ajax_get_passage');
         $this->loader->add_action('wp_ajax_ra_get_passages', $plugin_admin, 'ajax_get_passages');
         $this->loader->add_action('wp_ajax_ra_delete_passage', $plugin_admin, 'ajax_delete_passage');
@@ -63,21 +61,17 @@ class Reading_Assessment {
 
     private function define_public_hooks() {
         $plugin_public = new Reading_Assessment_Public($this->get_plugin_name(), $this->get_version());
-
         $this->loader->add_action('wp_enqueue_scripts', $plugin_public, 'enqueue_styles');
         $this->loader->add_action('wp_enqueue_scripts', $plugin_public, 'enqueue_scripts');
-
-        // Register shortcodes
         $this->loader->add_action('init', $plugin_public, 'register_shortcodes');
 
-        // AJAX handlers for public
+        // AJAX handlers for PUBLIC
         $this->loader->add_action('wp_ajax_ra_save_recording', $plugin_public, 'ajax_save_recording');
         $this->loader->add_action('wp_ajax_ra_submit_answers', $plugin_public, 'ajax_submit_answers');
         $this->loader->add_action('wp_ajax_ra_get_assessment', $plugin_public, 'ajax_get_assessment');
-
-        // Also allow non-logged-in users to view passages
+        // Non-logged-in users to view text passages and questions
+        $this->loader->add_action('wp_ajax_ra_get_questions', $plugin_public, 'ajax_get_questions');
         $this->loader->add_action('wp_ajax_nopriv_ra_get_passage', $plugin_public, 'ajax_get_passage');
-
          // Add login redirection hooks to Reading_Assessment_Public
         $this->loader->add_filter('login_redirect', $plugin_public, 'subscriber_login_redirect', 10, 3);
         $this->loader->add_action('wp_footer', $plugin_public, 'show_login_message');
