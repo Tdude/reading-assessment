@@ -52,8 +52,8 @@ class Reading_Assessment_Admin {
 
     public function add_menu_pages() {
         add_menu_page(
-            __('Läsuppskattning', 'reading-assessment'),
-            __('Läsuppskattning', 'reading-assessment'),
+            __('Läsuppskattning', 'reading-assessment'),// rubrik
+            __('LäsUppSkattning', 'reading-assessment'),// menytitel
             'manage_options',
             'reading-assessment',
             [$this, 'render_dashboard_page'],
@@ -96,6 +96,32 @@ class Reading_Assessment_Admin {
             'reading-assessment-results',
             [$this, 'render_results_page']
         );
+
+        add_submenu_page(
+            'reading-assessment',
+            __('Hantera inspelningar', 'reading-assessment'),
+            __('Inspelningar', 'reading-assessment'),
+            'manage_options',
+            'reading-assessment-recordings',
+            [$this, 'render_recordings_page']
+        );
+
+        // Add repair tool if there are orphaned recordings you wanna associate to texts
+        $ra_db = new Reading_Assessment_Database();
+        if ($ra_db->get_total_orphaned_recordings() > 0) {
+            add_submenu_page(
+                'reading-assessment',
+                __('Reparera inspelningar', 'reading-assessment'),
+                __('Reparera', 'reading-assessment'),
+                'manage_options',
+                'reading-assessment-repair',
+                [$this, 'render_repair_page']
+            );
+        }
+    }
+
+    public function render_repair_page() {
+        include RA_PLUGIN_DIR . 'admin/partials/ra-admin-repair.php';
     }
 
     public function render_dashboard_page() {
@@ -116,6 +142,10 @@ class Reading_Assessment_Admin {
 
     public function render_assignments_page() {
         include RA_PLUGIN_DIR . 'admin/partials/ra-admin-assignments.php';
+    }
+
+    public function render_recordings_page() {
+        include RA_PLUGIN_DIR . 'admin/partials/ra-admin-recordings.php';
     }
 
     public function ajax_get_passage() {
