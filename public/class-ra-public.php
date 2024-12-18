@@ -36,7 +36,7 @@ class Reading_Assessment_Public {
             ?>
             <div id="login-overlay" class="ra-overlay">
                 <div id="login-message" class="ra-login-message">
-                    Nu är du inloggad.
+                    Du är inloggad.
                 </div>
             </div>
             <script>
@@ -71,6 +71,7 @@ class Reading_Assessment_Public {
             $this->version,
             true
         );
+
 
         // Include (on slug inspelningsmodul) WaveSurfer.js from CDN
         global $post;
@@ -115,35 +116,75 @@ class Reading_Assessment_Public {
         ob_start();
         ?>
         <div id="audio-recorder" class="ra-audio-recorder">
+            <?php
+            // Get current passage ID
+            $current_passage_id = isset($_GET['passage_id']) ? intval($_GET['passage_id']) : 0;
+            ?>
+            <input type="hidden" id="current-passage-id" value="<?php echo esc_attr($current_passage_id); ?>">
+
             <div class="ra-controls">
-                <button id="start-recording" class="ra-button record">
-                    <span class="ra-icon">⚫</span>
-                    <span class="ra-label">Spela in</span>
-                </button>
+            <button id="start-recording" class="ra-button record">
+                <span class="ra-icon">⚫</span>
+                <span class="ra-label">Spela in</span>
+            </button>
 
-                <button id="stop-recording" class="ra-button stop" disabled>
-                    <span class="ra-icon">⬛</span>
-                    <span class="ra-label">Stopp</span>
-                </button>
+            <button id="stop-recording" class="ra-button stop" disabled>
+                <span class="ra-icon">⬛</span>
+                <span class="ra-label">Stopp</span>
+            </button>
 
-                <button id="playback" class="ra-button play" disabled>
-                    <span class="ra-icon">▶</span>
-                    <span class="ra-label">Spela</span>
-                </button>
+            <button id="playback" class="ra-button play" disabled>
+                <span class="ra-icon">▶</span>
+                <span class="ra-label">Spela</span>
+            </button>
 
-                <button id="trim-audio" class="ra-button trim" disabled>
-                    <span class="ra-icon">✂️</span>
-                    <span class="ra-label">Trimma</span>
-                </button>
+            <button id="trim-audio" class="ra-button trim" disabled>
+                <span class="ra-icon">✂️</span>
+                <span class="ra-label">Trimma</span>
+            </button>
 
-                <button id="upload-recording" class="ra-button upload" disabled>
-                    <span class="ra-icon">⬆️</span>
-                    <span class="ra-label">Ladda upp</span>
-                </button>
+            <button id="upload-recording" class="ra-button upload" disabled>
+                <span class="ra-icon">⬆️</span>
+                <span class="ra-label">Ladda upp</span>
+            </button>
+        </div>
+
+
+        <div id="waveform" class="ra-waveform" style="display: block; min-height: 128px; width: 100%;"></div>
+        <p id="status" class="ra-status"></p>
+
+        <!-- Add questions section -->
+        <div id="questions-section" class="ra-questions" style="display: none;">
+            <h3><?php _e('Frågor om texten', 'reading-assessment'); ?></h3>
+            <?php
+            if ($current_passage_id) {
+                $db = new Reading_Assessment_Database();
+                $questions = $db->get_questions_for_passage($current_passage_id);
+
+                if ($questions): ?>
+                    <form id="questions-form" class="ra-questions-form">
+                        <?php foreach ($questions as $question): ?>
+                            <div class="ra-question-item">
+                                <label for="question-<?php echo esc_attr($question->id); ?>">
+                                    <?php echo esc_html($question->question_text); ?>
+                                </label>
+                                <input type="text"
+                                        id="question-<?php echo esc_attr($question->id); ?>"
+                                        name="answers[<?php echo esc_attr($question->id); ?>]"
+                                        class="ra-answer-input"
+                                        required>
+                            </div>
+                        <?php endforeach; ?>
+                        <button type="submit" class="ra-button submit-answers">
+                            <?php _e('Skicka svar', 'reading-assessment'); ?>
+                        </button>
+                    </form>
+                <?php else: ?>
+                    <p><?php _e('Inga frågor tillgängliga för denna text.', 'reading-assessment'); ?></p>
+                <?php endif;
+                }
+                ?>
             </div>
-
-            <div id="waveform" class="ra-waveform"></div>
-            <p id="status" class="ra-status"></p>
         </div>
         <?php
         return ob_get_clean();
@@ -171,22 +212,17 @@ class Reading_Assessment_Public {
         <div class="ra-user-info">
             <h2><?php echo sprintf(__('Texter tilldelade till %s', 'reading-assessment'), esc_html($nickname)); ?></h2>
         </div>
+
+        <!-- Passages Accordion -->
         <div class="ra-assigned-passages">
             <?php foreach ($assigned_passages as $passage): ?>
                 <div class="ra-collapsible">
-                    <h2 class="ra-collapsible-title" data-target="passage-<?php echo esc_attr($passage->id); ?>">
+                    <h2 class="ra-collapsible-title" data-passage-id="<?php echo esc_attr($passage->id); ?>">
                         <?php echo esc_html($passage->title); ?>
                         <span class="ra-collapsible-icon">▼</span>
                     </h2>
                     <div id="passage-<?php echo esc_attr($passage->id); ?>" class="ra-collapsible-content">
                         <?php echo wp_kses_post($passage->content); ?>
-                        <?php if ($passage->audio_file): ?>
-                            <div class="ra-passage-audio">
-                                <audio controls>
-                                    <source src="<?php echo esc_url(wp_upload_dir()['baseurl'] . '/reading-assessment/' . $passage->audio_file); ?>" type="audio/mpeg">
-                                </audio>
-                            </div>
-                        <?php endif; ?>
                     </div>
                 </div>
             <?php endforeach; ?>
@@ -202,6 +238,10 @@ class Reading_Assessment_Public {
     }
 
     public function ajax_save_recording() {
+        error_log('Starting ajax_save_recording');
+        error_log('POST data: ' . print_r($_POST, true));
+        error_log('FILES data: ' . print_r($_FILES, true));
+
         if (!is_user_logged_in()) {
             wp_send_json_error(['message' => 'User not logged in']);
             return;
@@ -211,6 +251,11 @@ class Reading_Assessment_Public {
             wp_send_json_error(['message' => 'No audio file received']);
             return;
         }
+
+
+        // Get the passage_id from the request
+        $passage_id = isset($_POST['passage_id']) ? intval($_POST['passage_id']) : 0;
+        error_log('Passage ID from request: ' . $passage_id);
 
         // Set up directory structure
         $upload_dir = wp_upload_dir();
@@ -233,13 +278,13 @@ class Reading_Assessment_Public {
         if (move_uploaded_file($_FILES['audio_file']['tmp_name'], $file_path)) {
             chmod($file_path, 0644);
 
-            // Save to database
+            // Save to database with passage_id
             global $wpdb;
             $result = $wpdb->insert(
                 $wpdb->prefix . 'ra_recordings',
                 array(
                     'user_id' => get_current_user_id(),
-                    'passage_id' => isset($_POST['passage_id']) ? intval($_POST['passage_id']) : 0,
+                    'passage_id' => $passage_id,  // Make sure this gets saved
                     'audio_file_path' => $relative_path,
                     'duration' => isset($_POST['duration']) ? floatval($_POST['duration']) : 0,
                     'created_at' => current_time('mysql')
@@ -248,6 +293,7 @@ class Reading_Assessment_Public {
             );
 
             if ($result === false) {
+                error_log('Database insert failed: ' . $wpdb->last_error);
                 wp_send_json_error([
                     'message' => 'Failed to save recording data to database',
                     'error' => $wpdb->last_error
@@ -259,13 +305,9 @@ class Reading_Assessment_Public {
                 'message' => 'File saved successfully',
                 'file_path' => $relative_path,
                 'recording_id' => $wpdb->insert_id,
+                //'passage_id' => $passage_id,  // Return this in response?
                 'url' => $upload_dir['baseurl'] . $relative_path
             ]);
-
-            // Possibly need to add this for the admin list when saving new recordings
-            wp_cache_delete('ra_recordings_count');
-            wp_cache_delete('ra_recordings_page_1');
-
         } else {
             wp_send_json_error([
                 'message' => 'Failed to save file',
@@ -274,9 +316,97 @@ class Reading_Assessment_Public {
         }
     }
 
+
+    public function ajax_get_questions() {
+        error_log('===== QUESTIONS AJAX HANDLER CALLED =====');
+        error_log('REQUEST: ' . print_r($_REQUEST, true));
+
+        // Verify nonce
+        $nonce = isset($_POST['nonce']) ? $_POST['nonce'] : '';
+        error_log('Received nonce: ' . $nonce);
+
+        if (!wp_verify_nonce($nonce, 'ra_public_nonce')) {
+            error_log('Nonce verification failed');
+            wp_send_json_error(['message' => 'Security check failed']);
+            exit;
+        }
+
+        // Get passage ID
+        $passage_id = isset($_POST['passage_id']) ? absint($_POST['passage_id']) : 0;
+        error_log('Processing passage ID: ' . $passage_id);
+
+        if (!$passage_id) {
+            error_log('Invalid passage ID');
+            wp_send_json_error(['message' => 'Invalid passage ID']);
+            exit;
+        }
+
+        // Get questions
+        $questions = $this->db->get_questions_for_passage($passage_id);
+        error_log('Questions from database: ' . print_r($questions, true));
+
+        if (empty($questions)) {
+            error_log('No questions found');
+            wp_send_json_error(['message' => 'No questions found for this passage']);
+            exit;
+        }
+
+        // Format and send response
+        $formatted_questions = array_map(function($q) {
+            return [
+                'id' => absint($q['id']),
+                'question_text' => $q['question_text'],
+                'correct_answer' => $q['correct_answer'],
+                'weight' => floatval($q['weight'])
+            ];
+        }, $questions);
+
+        error_log('Sending questions response: ' . print_r($formatted_questions, true));
+        wp_send_json_success($formatted_questions);
+        exit;
+    }
+
+
     public function ajax_submit_answers() {
-        // Implementation for submitting answers via AJAX.
-        wp_send_json_success(['message' => 'Answers submitted']);
+        if (!is_user_logged_in()) {
+            wp_send_json_error(['message' => 'User not logged in']);
+            return;
+        }
+
+        if (!isset($_POST['answers']) || !isset($_POST['recording_id'])) {
+            wp_send_json_error(['message' => 'Missing required data']);
+            return;
+        }
+
+        // Get recording ID and answers
+        $recording_id = intval($_POST['recording_id']);
+        $answers = $_POST['answers'];
+
+        // Validate recording exists and belongs to user
+        $recording = $this->db->get_recording($recording_id);
+        if (!$recording || $recording->user_id !== get_current_user_id()) {
+            wp_send_json_error(['message' => 'Invalid recording']);
+            return;
+        }
+
+        // Initialize evaluator
+        $evaluator = new Reading_Assessment_Evaluator();
+
+        // Process answers and store results
+        $result = $evaluator->evaluate_assessment($recording_id, $answers);
+
+        if (is_wp_error($result)) {
+            wp_send_json_error(['message' => $result->get_error_message()]);
+            return;
+        }
+
+        // Return success with results
+        wp_send_json_success([
+            'message' => 'Answers submitted successfully',
+            'score' => $result['normalized_score'],
+            'correct_answers' => $result['correct_answers'],
+            'total_questions' => $result['total_questions']
+        ]);
     }
 
     public function ajax_get_assessment() {
