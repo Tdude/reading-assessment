@@ -115,7 +115,7 @@ $passages = $ra_db->get_all_passages();
                         <th><?php _e('Tilldelad', 'reading-assessment'); ?></th>
                         <th><?php _e('Slutdatum', 'reading-assessment'); ?></th>
                         <th><?php _e('Status', 'reading-assessment'); ?></th>
-                        <th><?php _e('Åtgärd', 'reading-assessment'); ?></th>
+                        <th><?php _e('Aktivitet', 'reading-assessment'); ?></th>
                     </tr>
                 </thead>
                 <tbody>
