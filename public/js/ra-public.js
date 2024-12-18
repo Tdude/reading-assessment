@@ -14,7 +14,8 @@ window.RAPublicUtils = {
             this.classList.toggle("active");
 
             // Update current passage input
-            const currentPassageInput = document.getElementById("current-passage-id");
+            const currentPassageInput =
+              document.getElementById("current-passage-id");
             if (currentPassageInput) {
               currentPassageInput.value = passageId;
               console.log("Selected passage ID:", passageId);

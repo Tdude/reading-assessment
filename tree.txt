@@ -1,37 +1,26 @@
+# Tree
+
+reading-assessment/
 ├── README.md
 ├── admin
-│   ├── class-ra-admin.php
 │   ├── css
 │   │   └── ra-admin.css
-│   ├── js
-│   │   └── ra-admin.js
 │   └── partials
-│       ├── ra-admin-assignments.php
 │       ├── ra-admin-dashboard.php
 │       ├── ra-admin-passages.php
 │       ├── ra-admin-questions.php
-│       ├── ra-admin-recordings.php
-│       ├── ra-admin-repair.php
 │       └── ra-admin-results.php
+├── assets
+├── class-ra-activator.php
+├── class-ra-admin.php
 ├── includes
 │   ├── class-i18n.php
-│   ├── class-ra-activator.php
 │   ├── class-ra-database.php
-│   ├── class-ra-deactivator.php
 │   ├── class-ra-evaluator.php
 │   ├── class-ra-i18n.php
 │   ├── class-ra-loader.php
 │   ├── class-ra-recorder.php
 │   └── class-reading-assessment.php
 ├── languages
-│   ├── reading-assessment-sv_SE.po
-│   └── reading-assessment.pot
 ├── public
-│   ├── class-ra-public.php
-│   ├── css
-│   │   └── ra-public.css
-│   └── js
-│       ├── ra-public.js
-│       └── ra-recorder.js
 ├── reading-assessment.php
-└── tree.txt

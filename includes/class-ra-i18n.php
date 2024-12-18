@@ -81,5 +81,4 @@ class Reading_Assessment_i18n {
         __('Kunde inte radera inspelningen', 'reading-assessment');
         __('Ett fel uppstod vid kommunikation med servern', 'reading-assessment');
     }
-
 }

@@ -46,33 +46,35 @@ class Reading_Assessment {
         $this->loader->add_action('admin_menu', $plugin_admin, 'add_menu_pages');
         $this->loader->add_action('admin_init', $plugin_admin, 'register_settings');
 
-        // AJAX handlers for ADMIN
-        $this->loader->add_action('wp_ajax_ra_get_passage', $plugin_admin, 'ajax_get_passage');
-        $this->loader->add_action('wp_ajax_ra_get_passages', $plugin_admin, 'ajax_get_passages');
-        $this->loader->add_action('wp_ajax_ra_delete_passage', $plugin_admin, 'ajax_delete_passage');
-        $this->loader->add_action('wp_ajax_ra_get_questions', $plugin_admin, 'ajax_get_questions');
-        $this->loader->add_action('wp_ajax_ra_delete_question', $plugin_admin, 'ajax_delete_question');
-        $this->loader->add_action('wp_ajax_ra_get_results', $plugin_admin, 'ajax_get_results');
-        $this->loader->add_action('wp_ajax_ra_delete_assignment', $plugin_admin, 'ajax_delete_assignment');
-        $this->loader->add_action('wp_ajax_ra_save_assessment', $plugin_admin, 'ajax_save_assessment');
-        $this->loader->add_action('wp_ajax_ra_delete_recording', $plugin_admin, 'ajax_delete_recording');
-        $this->loader->add_action('wp_ajax_ra_save_interactions', $plugin_admin, 'ajax_save_interactions');
+        // AJAX handlers for ADMIN - note the 'admin_' prefix
+        $this->loader->add_action('wp_ajax_ra_admin_get_passage', $plugin_admin, 'ajax_get_passage');
+        $this->loader->add_action('wp_ajax_ra_admin_get_passages', $plugin_admin, 'ajax_get_passages');
+        $this->loader->add_action('wp_ajax_ra_admin_delete_passage', $plugin_admin, 'ajax_delete_passage');
+        $this->loader->add_action('wp_ajax_ra_admin_get_questions', $plugin_admin, 'ajax_get_questions');
+        $this->loader->add_action('wp_ajax_ra_admin_delete_question', $plugin_admin, 'ajax_delete_question');
+        $this->loader->add_action('wp_ajax_ra_admin_get_results', $plugin_admin, 'ajax_get_results');
+        $this->loader->add_action('wp_ajax_ra_admin_delete_assignment', $plugin_admin, 'ajax_delete_assignment');
+        $this->loader->add_action('wp_ajax_ra_admin_save_assessment', $plugin_admin, 'ajax_save_assessment');
+        $this->loader->add_action('wp_ajax_ra_admin_delete_recording', $plugin_admin, 'ajax_delete_recording');
+        $this->loader->add_action('wp_ajax_ra_admin_save_interactions', $plugin_admin, 'ajax_save_interactions');
     }
 
     private function define_public_hooks() {
         $plugin_public = new Reading_Assessment_Public($this->get_plugin_name(), $this->get_version());
+
+        // Basic hooks
         $this->loader->add_action('wp_enqueue_scripts', $plugin_public, 'enqueue_styles');
         $this->loader->add_action('wp_enqueue_scripts', $plugin_public, 'enqueue_scripts');
         $this->loader->add_action('init', $plugin_public, 'register_shortcodes');
 
-        // AJAX handlers for PUBLIC
+        // Public AJAX handlers - note the 'public_' prefix for clarity
+        $this->loader->add_action('wp_ajax_ra_public_get_questions', $plugin_public, 'ajax_get_questions');
+        $this->loader->add_action('wp_ajax_nopriv_ra_public_get_questions', $plugin_public, 'ajax_get_questions');
         $this->loader->add_action('wp_ajax_ra_save_recording', $plugin_public, 'ajax_save_recording');
         $this->loader->add_action('wp_ajax_ra_submit_answers', $plugin_public, 'ajax_submit_answers');
         $this->loader->add_action('wp_ajax_ra_get_assessment', $plugin_public, 'ajax_get_assessment');
-        // Non-logged-in users to view text passages and questions
-        $this->loader->add_action('wp_ajax_ra_get_questions', $plugin_public, 'ajax_get_questions');
-        $this->loader->add_action('wp_ajax_nopriv_ra_get_passage', $plugin_public, 'ajax_get_passage');
-         // Add login redirection hooks to Reading_Assessment_Public
+
+        // Other hooks
         $this->loader->add_filter('login_redirect', $plugin_public, 'subscriber_login_redirect', 10, 3);
         $this->loader->add_action('wp_footer', $plugin_public, 'show_login_message');
     }

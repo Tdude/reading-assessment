@@ -100,9 +100,11 @@ class Reading_Assessment_Evaluator {
     private function calculate_similarity($str1, $str2) {
         $leven = levenshtein($str1, $str2);
         $max_len = max(strlen($str1), strlen($str2));
+
         if ($max_len === 0) {
             return 100;
         }
+
         return (1 - ($leven / $max_len)) * 100;
     }
 
@@ -132,6 +134,7 @@ class Reading_Assessment_Evaluator {
             ],
             ['%d', '%f', '%f', '%s']
         );
+
         return $this->db->insert_id;
     }
   }

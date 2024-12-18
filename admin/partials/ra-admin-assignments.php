@@ -33,15 +33,15 @@ $passages = $ra_db->get_all_passages();
     <h1><?php echo esc_html(get_admin_page_title()); ?></h1>
 
     <?php if (isset($error_message)): ?>
-        <div class="notice notice-error">
-            <p><?php echo esc_html($error_message); ?></p>
-        </div>
+    <div class="notice notice-error">
+        <p><?php echo esc_html($error_message); ?></p>
+    </div>
     <?php endif; ?>
 
     <?php if (isset($success_message)): ?>
-        <div class="notice notice-success">
-            <p><?php echo esc_html($success_message); ?></p>
-        </div>
+    <div class="notice notice-success">
+        <p><?php echo esc_html($success_message); ?></p>
+    </div>
     <?php endif; ?>
 
     <!-- Assignment Form -->
@@ -59,9 +59,9 @@ $passages = $ra_db->get_all_passages();
                         <select name="user_id" id="user_id" required>
                             <option value=""><?php _e('Välj användare', 'reading-assessment'); ?></option>
                             <?php foreach ($users as $user): ?>
-                                <option value="<?php echo esc_attr($user->ID); ?>">
-                                    <?php echo esc_html($user->display_name); ?>
-                                </option>
+                            <option value="<?php echo esc_attr($user->ID); ?>">
+                                <?php echo esc_html($user->display_name); ?>
+                            </option>
                             <?php endforeach; ?>
                         </select>
                     </td>
@@ -74,9 +74,9 @@ $passages = $ra_db->get_all_passages();
                         <select name="passage_id" id="passage_id" required>
                             <option value=""><?php _e('Välj text', 'reading-assessment'); ?></option>
                             <?php foreach ($passages as $passage): ?>
-                                <option value="<?php echo esc_attr($passage->id); ?>">
-                                    <?php echo esc_html($passage->title); ?>
-                                </option>
+                            <option value="<?php echo esc_attr($passage->id); ?>">
+                                <?php echo esc_html($passage->title); ?>
+                            </option>
                             <?php endforeach; ?>
                         </select>
                     </td>
@@ -93,7 +93,7 @@ $passages = $ra_db->get_all_passages();
 
             <p class="submit">
                 <input type="submit" name="submit" id="submit" class="button button-primary"
-                       value="<?php _e('Tilldela text', 'reading-assessment'); ?>">
+                    value="<?php _e('Tilldela text', 'reading-assessment'); ?>">
             </p>
         </form>
     </div>
@@ -107,32 +107,33 @@ $passages = $ra_db->get_all_passages();
         ?>
 
         <?php if ($assignments): ?>
-            <table class="wp-list-table widefat fixed striped">
-                <thead>
-                    <tr>
-                        <th><?php _e('Användare', 'reading-assessment'); ?></th>
-                        <th><?php _e('Text', 'reading-assessment'); ?></th>
-                        <th><?php _e('Tilldelad', 'reading-assessment'); ?></th>
-                        <th><?php _e('Slutdatum', 'reading-assessment'); ?></th>
-                        <th><?php _e('Status', 'reading-assessment'); ?></th>
-                        <th><?php _e('Aktivitet', 'reading-assessment'); ?></th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <?php foreach ($assignments as $assignment): ?>
-                        <tr>
-                            <td><?php echo esc_html($assignment->user_name); ?></td>
-                            <td><?php echo esc_html($assignment->passage_title); ?></td>
-                            <td><?php echo esc_html(date_i18n(get_option('date_format'), strtotime($assignment->assigned_at))); ?></td>
-                            <td>
-                                <?php
+        <table class="wp-list-table widefat fixed striped">
+            <thead>
+                <tr>
+                    <th><?php _e('Användare', 'reading-assessment'); ?></th>
+                    <th><?php _e('Text', 'reading-assessment'); ?></th>
+                    <th><?php _e('Tilldelad', 'reading-assessment'); ?></th>
+                    <th><?php _e('Slutdatum', 'reading-assessment'); ?></th>
+                    <th><?php _e('Status', 'reading-assessment'); ?></th>
+                    <th><?php _e('Aktivitet', 'reading-assessment'); ?></th>
+                </tr>
+            </thead>
+            <tbody>
+                <?php foreach ($assignments as $assignment): ?>
+                <tr>
+                    <td><?php echo esc_html($assignment->user_name); ?></td>
+                    <td><?php echo esc_html($assignment->passage_title); ?></td>
+                    <td><?php echo esc_html(date_i18n(get_option('date_format'), strtotime($assignment->assigned_at))); ?>
+                    </td>
+                    <td>
+                        <?php
                                 echo $assignment->due_date
                                     ? esc_html(date_i18n(get_option('date_format'), strtotime($assignment->due_date)))
                                     : __('Inget slutdatum', 'reading-assessment');
                                 ?>
-                            </td>
-                            <td>
-                                <?php
+                    </td>
+                    <td>
+                        <?php
                                 $status_labels = [
                                     'pending' => __('Väntar', 'reading-assessment'),
                                     'completed' => __('Slutförd', 'reading-assessment'),
@@ -140,18 +141,18 @@ $passages = $ra_db->get_all_passages();
                                 ];
                                 echo esc_html($status_labels[$assignment->status] ?? $assignment->status);
                                 ?>
-                            </td>
-                            <td>
-                                <button class="button ra-delete-assignment" data-id="<?php echo esc_attr($assignment->id); ?>">
-                                    <?php _e('Ta bort', 'reading-assessment'); ?>
-                                </button>
-                            </td>
-                        </tr>
-                    <?php endforeach; ?>
-                </tbody>
-            </table>
+                    </td>
+                    <td>
+                        <button class="button ra-delete-assignment" data-id="<?php echo esc_attr($assignment->id); ?>">
+                            <?php _e('Ta bort', 'reading-assessment'); ?>
+                        </button>
+                    </td>
+                </tr>
+                <?php endforeach; ?>
+            </tbody>
+        </table>
         <?php else: ?>
-            <p><?php _e('Inga aktiva tilldelningar hittades.', 'reading-assessment'); ?></p>
+        <p><?php _e('Inga aktiva tilldelningar hittades.', 'reading-assessment'); ?></p>
         <?php endif; ?>
     </div>
 </div>

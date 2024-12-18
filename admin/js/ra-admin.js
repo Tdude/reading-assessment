@@ -106,14 +106,13 @@
             $("#passage_id").val(passage.id);
             $("#title").val(passage.title);
             $("#difficulty_level").val(passage.difficulty_level);
-            if (typeof tinyMCE !== "undefined" && tinyMCE.get("content")) {
-              tinyMCE.get("content").setContent(passage.content);
-            }
             $("#time_limit").val(passage.time_limit);
-
             $("#ra-form-title").text("Ändra text");
             $("#ra-cancel-edit").show();
             RAUtils.scrollTo($("#ra-passage-form"));
+            if (typeof tinyMCE !== "undefined" && tinyMCE.get("content")) {
+              tinyMCE.get("content").setContent(passage.content);
+            }
           }
         );
       },
@@ -177,11 +176,10 @@
         $("#question_text").val(questionData.question);
         $("#correct_answer").val(questionData.answer);
         $("#weight").val(questionData.weight);
-
         $("#ra-form-title").text("Ändra fråga");
         $("#ra-cancel-edit").show();
-        RAUtils.scrollTo($("#ra-question-form"));
         $("#submit").val("Uppdatera fråga");
+        RAUtils.scrollTo($("#ra-question-form"));
       },
 
       delete: function (questionId) {

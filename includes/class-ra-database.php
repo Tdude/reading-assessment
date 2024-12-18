@@ -237,14 +237,18 @@ class Reading_Assessment_Database {
      * @return object|null Recording object or null if not found
      */
     public function get_recording($recording_id) {
-        return $this->db->get_row($this->db->prepare(
-            "SELECT r.*, p.title as passage_title, u.display_name as user_name
+        error_log('Fetching recording: ' . $recording_id);
+
+        $recording = $this->db->get_row($this->db->prepare(
+            "SELECT r.*, u.ID as user_id
              FROM {$this->db->prefix}ra_recordings r
-             LEFT JOIN {$this->db->prefix}ra_passages p ON r.passage_id = p.id
-             LEFT JOIN {$this->db->users} u ON r.user_id = u.ID
+             JOIN {$this->db->users} u ON r.user_id = u.ID
              WHERE r.id = %d",
             $recording_id
         ));
+
+        error_log('Found recording data: ' . print_r($recording, true));
+        return $recording;
     }
 
 
@@ -257,11 +261,11 @@ class Reading_Assessment_Database {
     public function save_recording($data) {
         $user_id = get_current_user_id();
         $recording_path = $this->get_recording_path($user_id);
-        
+
         if (!file_exists($recording_path)) {
             wp_mkdir_p($recording_path);
         }
-    
+
         $result = $this->db->insert(
             $this->db->prefix . 'ra_recordings',  // Fixed prefix
             array(
@@ -273,12 +277,67 @@ class Reading_Assessment_Database {
             ),
             array('%d', '%d', '%s', '%d', '%s')
         );
-    
+
         if ($result === false) {
             return new WP_Error('db_error', __('Failed to save recording data.', 'reading-assessment'));
         }
-        
+
         return $this->db->insert_id;
+    }
+
+
+    /**
+     * Save response to questions in the database
+     *
+     * @param array $data {
+     *     Array of response data.
+     *     @type int    $recording_id The ID of the recording being answered
+     *     @type int    $question_id  The ID of the question being answered
+     *     @type string $user_answer  The user's answer text to the question
+     * }
+     *
+     * @return int|false The response ID if successful, false on failure
+     */
+    public function save_response($data) {
+        error_log('Attempting to save response: ' . print_r($data, true));
+
+        try {
+            // Check if created_at column exists
+            $columns = $this->db->get_col("SHOW COLUMNS FROM {$this->db->prefix}ra_responses");
+            $has_created_at = in_array('created_at', $columns);
+
+            $insert_data = array(
+                'recording_id' => absint($data['recording_id']),
+                'question_id' => absint($data['question_id']),
+                'user_answer' => sanitize_text_field($data['user_answer'])
+            );
+
+            $format = array('%d', '%d', '%s');
+
+            // Only add created_at if column exists
+            if ($has_created_at) {
+                $insert_data['created_at'] = current_time('mysql');
+                $format[] = '%s';
+            }
+
+            $result = $this->db->insert(
+                $this->db->prefix . 'ra_responses',
+                $insert_data,
+                $format
+            );
+
+            if ($result === false) {
+                error_log('Database error when saving response: ' . $this->db->last_error);
+                return false;
+            }
+
+            error_log('Successfully saved response with ID: ' . $this->db->insert_id);
+            return $this->db->insert_id;
+
+        } catch (Exception $e) {
+            error_log('Exception when saving response: ' . $e->getMessage());
+            return false;
+        }
     }
 
 
@@ -439,7 +498,7 @@ class Reading_Assessment_Database {
 
     /**
      * Get unassigned recordings with user details and optional pagination
-     * 
+     *
      * Returns recordings that have no passage_id (0 or NULL) along with user display names.
      * Results are ordered by creation date, newest first.
      *
@@ -449,7 +508,7 @@ class Reading_Assessment_Database {
      */
     public function get_unassigned_recordings($limit = 20, $offset = 0) {
         return $this->db->get_results($this->db->prepare(
-            "SELECT r.*, u.display_name 
+            "SELECT r.*, u.display_name
             FROM {$this->db->prefix}ra_recordings r
             JOIN {$this->db->users} u ON r.user_id = u.ID
             WHERE r.passage_id = 0 OR r.passage_id IS NULL
@@ -459,10 +518,10 @@ class Reading_Assessment_Database {
             $offset
         ));
     }
-        
+
     /**
      * Get total count of unassigned recordings
-     * 
+     *
      * Counts recordings that have no passage_id (0 or NULL). Used for pagination
      * and statistics.
      *
@@ -475,10 +534,10 @@ class Reading_Assessment_Database {
             WHERE passage_id = 0 OR passage_id IS NULL"
         );
     }
-        
+
     /**
      * Update passage assignment for a single recording
-     * 
+     *
      * Associates a recording with a specific passage by updating its passage_id.
      * Used for both individual and bulk updates.
      *
@@ -495,10 +554,10 @@ class Reading_Assessment_Database {
             array('%d')
         );
     }
-        
+
     /**
      * Bulk update passage assignments for multiple recordings
-     * 
+     *
      * Takes an array of recording_id => passage_id pairs and updates them all.
      * Returns the number of successful updates.
      *
@@ -514,20 +573,20 @@ class Reading_Assessment_Database {
      */
     public function bulk_update_recordings($recording_passages) {
         $success_count = 0;
-        
+
         foreach ($recording_passages as $recording_id => $passage_id) {
             if ($this->update_recording_passage($recording_id, $passage_id)) {
                 $success_count++;
             }
         }
-        
+
         return $success_count;
     }
 
 
     /**
      * Get recording statistics for a passage
-     * 
+     *
      * Returns detailed statistics about recordings associated with a specific passage,
      * including total count, average duration, and assessment scores.
      *
@@ -579,12 +638,22 @@ class Reading_Assessment_Database {
      * @return array Array of question objects
      */
     public function get_questions_for_passage($passage_id) {
-        return $this->db->get_results(
-            $this->db->prepare(
-                "SELECT * FROM {$this->db->prefix}ra_questions WHERE passage_id = %d ORDER BY id ASC",
-                $passage_id
-            )
+        error_log('=== Getting questions from database for passage: ' . $passage_id . ' ===');
+
+        $query = $this->db->prepare(
+            "SELECT id, question_text, correct_answer, weight
+             FROM {$this->db->prefix}ra_questions
+             WHERE passage_id = %d
+             ORDER BY id ASC",
+            $passage_id
         );
+
+        error_log('Executing query: ' . $query);
+
+        $questions = $this->db->get_results($query, ARRAY_A);
+
+        error_log('Database returned questions: ' . print_r($questions, true));
+        return $questions;
     }
 
     /**
@@ -792,7 +861,7 @@ class Reading_Assessment_Database {
     public function get_passage_statistics($passage_id) {
         $stats = $this->db->get_row(
             $this->db->prepare(
-                "SELECT 
+                "SELECT
                     COUNT(*) as total_attempts,
                     AVG(normalized_score) as average_score,
                     AVG(total_score) as total_score,
@@ -803,7 +872,7 @@ class Reading_Assessment_Database {
                 $passage_id
             )
         );
-    
+
         return $stats ? $stats : (object)[
             'total_attempts' => 0,
             'average_score' => 0,
@@ -814,7 +883,7 @@ class Reading_Assessment_Database {
 
     public function get_passage_recording_count($passage_id) {
         return (int)$this->db->get_var($this->db->prepare(
-            "SELECT COUNT(*) FROM {$this->db->prefix}ra_recordings 
+            "SELECT COUNT(*) FROM {$this->db->prefix}ra_recordings
              WHERE passage_id = %d",
             $passage_id
         ));
@@ -869,7 +938,7 @@ class Reading_Assessment_Database {
 
     /**
      * Get orphaned recordings that need passage assignment
-     * 
+     *
      * Retrieves recordings with missing or invalid passage IDs,
      * along with relevant metadata to help identify correct passage.
      *
@@ -879,7 +948,7 @@ class Reading_Assessment_Database {
      */
     public function get_orphaned_recordings($limit = 50, $offset = 0) {
         return $this->db->get_results($this->db->prepare(
-            "SELECT r.*, u.display_name, u.user_email 
+            "SELECT r.*, u.display_name, u.user_email
             FROM {$this->db->prefix}ra_recordings r
             JOIN {$this->db->users} u ON r.user_id = u.ID
             WHERE r.passage_id = 0 OR r.passage_id IS NULL
@@ -892,22 +961,22 @@ class Reading_Assessment_Database {
 
     /**
      * Get total count of orphaned recordings
-     * 
+     *
      * Used for pagination and progress tracking in the repair tool.
      *
      * @return int Total number of recordings needing repair
      */
     public function get_total_orphaned_recordings() {
         return (int)$this->db->get_var(
-            "SELECT COUNT(*) 
-            FROM {$this->db->prefix}ra_recordings 
+            "SELECT COUNT(*)
+            FROM {$this->db->prefix}ra_recordings
             WHERE passage_id = 0 OR passage_id IS NULL"
         );
     }
 
     /**
      * Update passage ID for a batch of recordings
-     * 
+     *
      * @param array $updates Array of recording_id => passage_id pairs
      * @return array Array containing success count and error messages
      */

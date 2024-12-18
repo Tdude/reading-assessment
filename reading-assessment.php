@@ -31,7 +31,6 @@ define('RA_PLUGIN_URL', plugin_dir_url(__FILE__));
 
 
 
-
 /**
  * The code that runs during plugin activation.
  */

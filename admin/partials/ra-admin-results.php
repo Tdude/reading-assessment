@@ -34,17 +34,20 @@ $question_stats = $stats->get_question_statistics($date_limit, $passage_id);
                 <select name="passage_id">
                     <option value=""><?php _e('Alla texter', 'reading-assessment'); ?></option>
                     <?php foreach ($stats->get_all_passages() as $passage): ?>
-                        <option value="<?php echo esc_attr($passage->id); ?>"
-                                <?php selected($passage_id, $passage->id); ?>>
-                            <?php echo esc_html($passage->title); ?>
-                        </option>
+                    <option value="<?php echo esc_attr($passage->id); ?>" <?php selected($passage_id, $passage->id); ?>>
+                        <?php echo esc_html($passage->title); ?>
+                    </option>
                     <?php endforeach; ?>
                 </select>
                 <select name="date_range">
-                    <option value="7" <?php selected($date_range, 7); ?>><?php _e('Senast 7 dagarna', 'reading-assessment'); ?></option>
-                    <option value="30" <?php selected($date_range, 30); ?>><?php _e('Senast 30 dagarna', 'reading-assessment'); ?></option>
-                    <option value="90" <?php selected($date_range, 90); ?>><?php _e('Senast 90 dagarna', 'reading-assessment'); ?></option>
-                    <option value="all" <?php selected($date_range, 'all'); ?>><?php _e('Sedan början', 'reading-assessment'); ?></option>
+                    <option value="7" <?php selected($date_range, 7); ?>>
+                        <?php _e('Senast 7 dagarna', 'reading-assessment'); ?></option>
+                    <option value="30" <?php selected($date_range, 30); ?>>
+                        <?php _e('Senast 30 dagarna', 'reading-assessment'); ?></option>
+                    <option value="90" <?php selected($date_range, 90); ?>>
+                        <?php _e('Senast 90 dagarna', 'reading-assessment'); ?></option>
+                    <option value="all" <?php selected($date_range, 'all'); ?>>
+                        <?php _e('Sedan början', 'reading-assessment'); ?></option>
                 </select>
                 <?php submit_button(__('Filtrera', 'reading-assessment'), 'secondary', 'submit', false); ?>
                 <p>Här kan man förstås ha veckonummer, välja mellan datum, termin etc</p>
@@ -63,7 +66,8 @@ $question_stats = $stats->get_question_statistics($date_limit, $passage_id);
             </div>
             <div class="ra-stat-card">
                 <h3><?php _e('Medelresultat', 'reading-assessment'); ?></h3>
-                <div class="stat-number"><?php echo esc_html(number_format($overall_stats['avg_normalized_score'], 1)); ?>%</div>
+                <div class="stat-number">
+                    <?php echo esc_html(number_format($overall_stats['avg_normalized_score'], 1)); ?>%</div>
             </div>
             <div class="ra-stat-card">
                 <h3><?php _e('Frågor besvarade', 'reading-assessment'); ?></h3>
@@ -71,7 +75,8 @@ $question_stats = $stats->get_question_statistics($date_limit, $passage_id);
             </div>
             <div class="ra-stat-card">
                 <h3><?php _e('Antal rätt svar', 'reading-assessment'); ?></h3>
-                <div class="stat-number"><?php echo esc_html(number_format($overall_stats['correct_answer_rate'] ?? 0, 1)); ?>%</div>
+                <div class="stat-number">
+                    <?php echo esc_html(number_format($overall_stats['correct_answer_rate'] ?? 0, 1)); ?>%</div>
             </div>
         </div>
 

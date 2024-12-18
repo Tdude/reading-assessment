@@ -96,7 +96,6 @@ class Reading_Assessment_Admin {
             'reading-assessment-results',
             [$this, 'render_results_page']
         );
-
         add_submenu_page(
             'reading-assessment',
             __('Hantera inspelningar', 'reading-assessment'),
@@ -106,7 +105,7 @@ class Reading_Assessment_Admin {
             [$this, 'render_recordings_page']
         );
 
-        // Add repair tool if there are orphaned recordings you wanna associate to texts
+        // Only add repair tool if there are orphaned recordings
         $ra_db = new Reading_Assessment_Database();
         if ($ra_db->get_total_orphaned_recordings() > 0) {
             add_submenu_page(
