@@ -71,7 +71,7 @@ $question_stats = $stats->get_question_statistics($date_limit, $passage_id);
             </div>
             <div class="ra-stat-card">
                 <h3><?php _e('Antal rätt svar', 'reading-assessment'); ?></h3>
-                <div class="stat-number"><?php echo esc_html(number_format($overall_stats['correct_answer_rate'], 1)); ?>%</div>
+                <div class="stat-number"><?php echo esc_html(number_format($overall_stats['correct_answer_rate'] ?? 0, 1)); ?>%</div>
             </div>
         </div>
 
@@ -93,8 +93,8 @@ $question_stats = $stats->get_question_statistics($date_limit, $passage_id);
                     <tr>
                         <td><?php echo esc_html($passage['title']); ?></td>
                         <td><?php echo esc_html($passage['recording_count']); ?></td>
-                        <td><?php echo esc_html(number_format($passage['avg_score'], 1)); ?>%</td>
-                        <td><?php echo esc_html(number_format($passage['correct_answer_rate'], 1)); ?>%</td>
+                        <td><?php echo esc_html(number_format($passage['avg_score'] ?? 0, 1)); ?> £</td>
+                        <td><?php echo esc_html(number_format($passage['correct_answer_rate'] ?? 0, 1)); ?>%</td>
                         <td><?php echo esc_html(number_format($passage['avg_duration'], 1)); ?>s</td>
                     </tr>
                     <?php endforeach; ?>
@@ -121,8 +121,8 @@ $question_stats = $stats->get_question_statistics($date_limit, $passage_id);
                         <td><?php echo esc_html($question['question_text']); ?></td>
                         <td><?php echo esc_html($question['passage_title']); ?></td>
                         <td><?php echo esc_html($question['times_answered']); ?></td>
-                        <td><?php echo esc_html(number_format($question['correct_rate'], 1)); ?>%</td>
-                        <td><?php echo esc_html(number_format($question['avg_similarity'], 1)); ?>%</td>
+                        <td><?php echo esc_html(number_format($question['correct_rate'] ?? 0, 1)); ?>%</td>
+                        <td><?php echo esc_html(number_format($question['avg_similarity'] ?? 0, 1)); ?>%</td>
                     </tr>
                     <?php endforeach; ?>
                 </tbody>
