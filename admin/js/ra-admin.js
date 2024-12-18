@@ -19,19 +19,33 @@
 
     // AJAX wrapper
     ajaxRequest: function (action, data, successCallback, errorCallback) {
+      // Map old action names to new ones
+      const actionMap = {
+        ra_get_passage: "ra_admin_get_passage",
+        ra_get_passages: "ra_admin_get_passages",
+        ra_delete_passage: "ra_admin_delete_passage",
+        ra_get_questions: "ra_admin_get_questions",
+        ra_delete_question: "ra_admin_delete_question",
+        ra_get_results: "ra_admin_get_results",
+        ra_delete_assignment: "ra_admin_delete_assignment",
+        ra_save_assessment: "ra_admin_save_assessment",
+        ra_delete_recording: "ra_admin_delete_recording",
+        ra_save_interactions: "ra_admin_save_interactions",
+      };
+
+      // Use mapped action name if it exists, otherwise use original
+      const mappedAction = actionMap[action] || action;
+
       // Use data.nonce if provided, otherwise fall back to default nonce
       const nonce = data.nonce || raStrings.nonce;
-
-      // Remove nonce from data if it exists to avoid sending it twice
-      const { nonce: _, ...cleanData } = data;
 
       $.ajax({
         url: raStrings.ajaxurl,
         type: "POST",
         data: {
-          action: action,
+          action: mappedAction, // Use mapped action name
           nonce: nonce,
-          ...cleanData,
+          ...data,
         },
         success: function (response) {
           if (response.success) {
@@ -58,15 +72,11 @@
       const $form = $(`#${formId}`);
       $form[0].reset();
 
-      if (options.editor) {
-        // Handle visual editor
-        if (typeof tinyMCE !== "undefined") {
-          const editor = tinyMCE.get(options.editor);
-          if (editor) editor.setContent("");
-        }
-        // Handle text editor
-        $(`#${options.editor}`).val("");
+      if (options.editor && typeof tinyMCE !== "undefined") {
+        const editor = tinyMCE.get(options.editor);
+        if (editor) editor.setContent("");
       }
+
       if (options.titleElement) {
         $(options.titleElement).text(options.defaultTitle || "");
       }
@@ -171,21 +181,36 @@
         $("#ra-form-title").text("Ändra fråga");
         $("#ra-cancel-edit").show();
         RAUtils.scrollTo($("#ra-question-form"));
+        $("#submit").val("Uppdatera fråga");
       },
 
       delete: function (questionId) {
         if (RAUtils.confirm("Är du säker på att du vill radera denna fråga?")) {
           RAUtils.ajaxRequest(
             "ra_delete_question",
-            { question_id: questionId },
+            { question_id: questionId, nonce: $("#ra_admin_action").val() },
             function () {
-              RAUtils.questions.load();
+              location.reload();
+            },
+            function (message) {
+              alert(message || "Ett fel uppstod vid borttagning av frågan.");
             }
           );
         }
       },
 
+      resetForm: function () {
+        RAUtils.resetForm("ra-question-form", {
+          titleElement: "#ra-form-title",
+          defaultTitle: "Lägg till ny fråga",
+          cancelButton: "#ra-cancel-edit",
+          hiddenFields: ["question_id"],
+        });
+        $("#submit").val("Spara fråga");
+      },
+
       initActions: function () {
+        // Edit Question
         $(".ra-edit-question").on("click", function (e) {
           e.preventDefault();
           const $button = $(this);
@@ -197,9 +222,16 @@
           });
         });
 
+        // Delete Question
         $(".ra-delete-question").on("click", function (e) {
           e.preventDefault();
           RAUtils.questions.delete($(this).data("id"));
+        });
+
+        // Cancel Edit
+        $("#ra-cancel-edit").on("click", function (e) {
+          e.preventDefault();
+          RAUtils.questions.resetForm();
         });
       },
     },
@@ -241,13 +273,13 @@
               recording_id: recordingId,
             },
             function (response) {
-              console.log("Delete success:", response); // Debug line
+              console.log("Delete success:", response);
               $button.closest("tr").fadeOut(400, function () {
                 $(this).remove();
               });
             },
             function (errorMessage) {
-              console.error("Delete error:", errorMessage); // Debug line
+              console.error("Delete error:", errorMessage);
               alert(errorMessage);
               $button.prop("disabled", false);
             }
@@ -257,7 +289,7 @@
       initActions: function () {
         $(".delete-recording").on("click", function (e) {
           e.preventDefault();
-          console.log("Delete button clicked"); // Debug line
+          console.log("Delete button clicked");
           RAUtils.recordings.delete($(this).data("recording-id"), $(this));
         });
       },
@@ -283,7 +315,26 @@
       });
     }
 
-    // Initialize both passages and questions if their containers exist
+    // Initialize Questions
+    RAUtils.questions.initActions();
+    RAUtils.questions.load();
+    // Other RAUtils actions nicetohaves here
+    RAUtils.passages?.load();
+
+    if ($toggleButton.length && $instructionsContent.length) {
+      const isVisible = localStorage.getItem("instructionsVisible") === "true";
+      if (isVisible) $instructionsContent.addClass("show");
+
+      $toggleButton.on("click", function () {
+        $instructionsContent.toggleClass("show");
+        localStorage.setItem(
+          "instructionsVisible",
+          $instructionsContent.hasClass("show")
+        );
+      });
+    }
+
+    // Initialize passages and questions if their containers exist
     RAUtils.passages.load();
     RAUtils.questions.load();
 
@@ -324,7 +375,7 @@
 
     // Close when clicking outside the modal
     $(".ra-modal").click(function (e) {
-      // If the click was directly on the modal background (not its children)
+      // If the click was on background (not children)
       if (e.target === this) {
         modal.hide();
       }
@@ -359,13 +410,13 @@
       );
     });
 
-    // Initialize recordings if we're on the dashboard
+    // Initialize recordings if on dashboard
     if ($(".delete-recording").length) {
       RAUtils.recordings.initActions();
     }
 
     // SHow admin interaction stats
-    // Only initialize if tracking is enabled and we're on the dashboard
+    // Initialize if tracking is enabled and on dashboard
     if (!$(".ra-stats-section").length) {
       return;
     }
@@ -373,8 +424,8 @@
     let lastActivity = Date.now();
     let clickCount = 0;
     let isActive = false;
-    const INACTIVE_TIMEOUT = 10000; // 10 seconds
-    const SAVE_INTERVAL = 60000; // 1 minute
+    const INACTIVE_TIMEOUT = 10000; // 10 sec
+    const SAVE_INTERVAL = 60000; // 1 min. Looogisch...
 
     function handleActivity() {
       lastActivity = Date.now();
@@ -430,7 +481,7 @@
       }
     }, INACTIVE_TIMEOUT);
 
-    // Save periodically
+    // Save periodically, see above
     setInterval(saveInteractions, SAVE_INTERVAL);
   });
 })(jQuery);
