@@ -7,7 +7,6 @@
  */
 
 class Reading_Assessment_Evaluator {
-
     private $db;
 
     public function __construct() {
@@ -15,15 +14,8 @@ class Reading_Assessment_Evaluator {
         $this->db = $wpdb;
     }
 
-    /**
-     * Evaluate user answers and calculate scores
-     *
-     * @param int $recording_id Recording ID
-     * @param array $answers Array of question ID => answer pairs
-     * @return array|WP_Error Assessment results or error
-     */
     public function evaluate_assessment($recording_id, $answers) {
-        // Get recording info
+        // Get recording details including passage_id
         $recording = $this->db->get_row(
             $this->db->prepare(
                 "SELECT * FROM {$this->db->prefix}ra_recordings WHERE id = %d",
@@ -32,89 +24,60 @@ class Reading_Assessment_Evaluator {
         );
 
         if (!$recording) {
-            return new WP_Error('invalid_recording', __('Invalid recording ID.', 'reading-assessment'));
+            return new WP_Error('invalid_recording', 'Invalid recording ID');
         }
 
-        // Get questions for the passage
+        // Get all questions for this passage
         $questions = $this->db->get_results(
             $this->db->prepare(
-                "SELECT * FROM {$this->db->prefix}ra_questions WHERE passage_id = %d",
+                "SELECT * FROM {$this->db->prefix}ra_questions
+                WHERE passage_id = %d",
                 $recording->passage_id
             )
         );
 
-        if (!$questions) {
-            return new WP_Error('no_questions', __('No questions found for this passage.', 'reading-assessment'));
-        }
-
+        $total_score = 0;
         $total_weight = 0;
-        $score = 0;
-        $responses = array();
+        $correct_answers = 0;
 
         // Evaluate each answer
         foreach ($questions as $question) {
-            $total_weight += $question->weight;
-
             if (isset($answers[$question->id])) {
-                $is_correct = $this->check_answer($question->correct_answer, $answers[$question->id]);
-                $question_score = $is_correct ? $question->weight : 0;
-                $score += $question_score;
-
-                // Store response
-                $responses[] = array(
-                    'recording_id' => $recording_id,
-                    'question_id' => $question->id,
-                    'user_answer' => $answers[$question->id],
-                    'is_correct' => $is_correct,
-                    'score' => $question_score
+                $answer_score = $this->evaluate_answer(
+                    $question->correct_answer,
+                    $answers[$question->id],
+                    $question->weight
                 );
+
+                $total_score += $answer_score['score'];
+                $total_weight += $question->weight;
+
+                if ($answer_score['is_correct']) {
+                    $correct_answers++;
+                }
+
+                // Store response in database
+                $this->store_response($recording_id, $question->id, $answers[$question->id], $answer_score);
             }
         }
 
         // Calculate normalized score (0-100)
-        $normalized_score = ($score / $total_weight) * 100;
-
-        // Store responses in database
-        foreach ($responses as $response) {
-            $this->db->insert(
-                $this->db->prefix . 'ra_responses',
-                $response,
-                array('%d', '%d', '%s', '%d', '%f')
-            );
-        }
+        $normalized_score = ($total_weight > 0) ? ($total_score / $total_weight) * 100 : 0;
 
         // Store assessment result
-        $assessment_data = array(
-            'recording_id' => $recording_id,
-            'total_score' => $score,
-            'normalized_score' => $normalized_score,
-            'completed_at' => current_time('mysql')
-        );
+        $assessment_id = $this->store_assessment($recording_id, $total_score, $normalized_score);
 
-        $this->db->insert(
-            $this->db->prefix . 'ra_assessments',
-            $assessment_data,
-            array('%d', '%f', '%f', '%s')
-        );
-
-        return array(
-            'score' => $score,
+        return [
+            'assessment_id' => $assessment_id,
+            'score' => $total_score,
             'normalized_score' => $normalized_score,
-            'total_questions' => count($questions),
-            'correct_answers' => count(array_filter($responses, function($r) { return $r['is_correct']; })),
-            'assessment_id' => $this->db->insert_id
-        );
+            'correct_answers' => $correct_answers,
+            'total_questions' => count($questions)
+        ];
     }
 
-    /**
-     * Check if an answer is correct
-     *
-     * @param string $correct_answer The correct answer
-     * @param string $user_answer The user's answer
-     * @return boolean True if correct, false if not
-     */
-    private function check_answer($correct_answer, $user_answer) {
-        // Convert both answers to lowercase and trim whitespace
+    private function evaluate_answer($correct_answer, $user_answer, $weight) {
+        // Convert to lowercase and trim whitespace
         $correct_answer = strtolower(trim($correct_answer));
         $user_answer = strtolower(trim($user_answer));
 
@@ -122,62 +85,53 @@ class Reading_Assessment_Evaluator {
         $similarity = $this->calculate_similarity($correct_answer, $user_answer);
 
         // Consider answer correct if similarity is above 90%
-        return $similarity >= 90;
+        $is_correct = ($similarity >= 90);
+
+        // Calculate weighted score
+        $score = $is_correct ? $weight : 0;
+
+        return [
+            'is_correct' => $is_correct,
+            'score' => $score,
+            'similarity' => $similarity
+        ];
     }
 
-    /**
-     * Calculate similarity between two strings
-     *
-     * @param string $str1 First string
-     * @param string $str2 Second string
-     * @return float Similarity percentage
-     */
     private function calculate_similarity($str1, $str2) {
         $leven = levenshtein($str1, $str2);
         $max_len = max(strlen($str1), strlen($str2));
-
         if ($max_len === 0) {
             return 100;
         }
-
         return (1 - ($leven / $max_len)) * 100;
     }
 
-    /**
-     * Get assessment results
-     *
-     * @param int $assessment_id Assessment ID
-     * @return array|WP_Error Assessment details or error
-     */
-    public function get_assessment_results($assessment_id) {
-        $assessment = $this->db->get_row(
-            $this->db->prepare(
-                "SELECT a.*, r.user_id, r.passage_id, r.duration
-                 FROM {$this->db->prefix}ra_assessments a
-                 JOIN {$this->db->prefix}ra_recordings r ON a.recording_id = r.id
-                 WHERE a.id = %d",
-                $assessment_id
-            ),
-            ARRAY_A
+    private function store_response($recording_id, $question_id, $user_answer, $evaluation) {
+        return $this->db->insert(
+            $this->db->prefix . 'ra_responses',
+            [
+                'recording_id' => $recording_id,
+                'question_id' => $question_id,
+                'user_answer' => $user_answer,
+                'is_correct' => $evaluation['is_correct'],
+                'score' => $evaluation['score'],
+                'similarity' => $evaluation['similarity']
+            ],
+            ['%d', '%d', '%s', '%d', '%f', '%f']
         );
-
-        if (!$assessment) {
-            return new WP_Error('invalid_assessment', __('Invalid assessment ID.', 'reading-assessment'));
-        }
-
-        // Get detailed responses
-        $responses = $this->db->get_results(
-            $this->db->prepare(
-                "SELECT r.*, q.question_text
-                 FROM {$this->db->prefix}ra_responses r
-                 JOIN {$this->db->prefix}ra_questions q ON r.question_id = q.id
-                 WHERE r.recording_id = %d",
-                $assessment['recording_id']
-            ),
-            ARRAY_A
-        );
-
-        $assessment['responses'] = $responses;
-        return $assessment;
     }
-}
+
+    private function store_assessment($recording_id, $total_score, $normalized_score) {
+        $this->db->insert(
+            $this->db->prefix . 'ra_assessments',
+            [
+                'recording_id' => $recording_id,
+                'total_score' => $total_score,
+                'normalized_score' => $normalized_score,
+                'completed_at' => current_time('mysql')
+            ],
+            ['%d', '%f', '%f', '%s']
+        );
+        return $this->db->insert_id;
+    }
+  }
