@@ -237,28 +237,16 @@ class Reading_Assessment_Database {
      * @return object|null Recording object or null if not found
      */
     public function get_recording($recording_id) {
-        error_log('Getting recording: ' . $recording_id);
-
-        $recording = $this->db->get_row(
-            $this->db->prepare(
-                "SELECT r.*, p.title as passage_title, u.display_name as user_name
-                FROM {$this->db->prefix}ra_recordings r
-                LEFT JOIN {$this->db->prefix}ra_passages p ON r.passage_id = p.id
-                LEFT JOIN {$this->db->users} u ON r.user_id = u.ID
-                WHERE r.id = %d",
-                $recording_id
-            )
-        );
-
-        error_log('Get recording query result: ' . ($recording ? 'found' : 'not found'));
-
-        if ($recording) {
-            $recording->full_audio_path = $this->get_upload_path() . $recording->audio_file_path;
-            error_log('Full audio path: ' . $recording->full_audio_path);
-        }
-
-        return $recording;
+        return $this->db->get_row($this->db->prepare(
+            "SELECT r.*, p.title as passage_title, u.display_name as user_name
+             FROM {$this->db->prefix}ra_recordings r
+             LEFT JOIN {$this->db->prefix}ra_passages p ON r.passage_id = p.id
+             LEFT JOIN {$this->db->users} u ON r.user_id = u.ID
+             WHERE r.id = %d",
+            $recording_id
+        ));
     }
+
 
     /**
      * Save recording data with more detailed information
@@ -269,13 +257,13 @@ class Reading_Assessment_Database {
     public function save_recording($data) {
         $user_id = get_current_user_id();
         $recording_path = $this->get_recording_path($user_id);
-
+        
         if (!file_exists($recording_path)) {
             wp_mkdir_p($recording_path);
         }
-
+    
         $result = $this->db->insert(
-            $this->db->prefix . 'ra_recordings',  // Removed extra prefix
+            $this->db->prefix . 'ra_recordings',  // Fixed prefix
             array(
                 'user_id' => $user_id,
                 'passage_id' => isset($data['passage_id']) ? $data['passage_id'] : 0,
@@ -285,11 +273,11 @@ class Reading_Assessment_Database {
             ),
             array('%d', '%d', '%s', '%d', '%s')
         );
-
+    
         if ($result === false) {
             return new WP_Error('db_error', __('Failed to save recording data.', 'reading-assessment'));
         }
-
+        
         return $this->db->insert_id;
     }
 
@@ -447,6 +435,115 @@ class Reading_Assessment_Database {
             ARRAY_A
         );
     }
+
+
+    /**
+     * Get unassigned recordings with user details and optional pagination
+     * 
+     * Returns recordings that have no passage_id (0 or NULL) along with user display names.
+     * Results are ordered by creation date, newest first.
+     *
+     * @param int $limit Maximum number of records to return
+     * @param int $offset Number of records to skip (for pagination)
+     * @return array Array of recording objects with user details
+     */
+    public function get_unassigned_recordings($limit = 20, $offset = 0) {
+        return $this->db->get_results($this->db->prepare(
+            "SELECT r.*, u.display_name 
+            FROM {$this->db->prefix}ra_recordings r
+            JOIN {$this->db->users} u ON r.user_id = u.ID
+            WHERE r.passage_id = 0 OR r.passage_id IS NULL
+            ORDER BY r.created_at DESC
+            LIMIT %d OFFSET %d",
+            $limit,
+            $offset
+        ));
+    }
+        
+    /**
+     * Get total count of unassigned recordings
+     * 
+     * Counts recordings that have no passage_id (0 or NULL). Used for pagination
+     * and statistics.
+     *
+     * @return int Total number of unassigned recordings
+     */
+    public function get_total_unassigned_recordings() {
+        return (int)$this->db->get_var(
+            "SELECT COUNT(*)
+            FROM {$this->db->prefix}ra_recordings
+            WHERE passage_id = 0 OR passage_id IS NULL"
+        );
+    }
+        
+    /**
+     * Update passage assignment for a single recording
+     * 
+     * Associates a recording with a specific passage by updating its passage_id.
+     * Used for both individual and bulk updates.
+     *
+     * @param int $recording_id ID of the recording to update
+     * @param int $passage_id ID of the passage to associate with
+     * @return bool True on successful update, false on failure
+     */
+    public function update_recording_passage($recording_id, $passage_id) {
+        return $this->db->update(
+            $this->db->prefix . 'ra_recordings',
+            array('passage_id' => $passage_id),
+            array('id' => $recording_id),
+            array('%d'),
+            array('%d')
+        );
+    }
+        
+    /**
+     * Bulk update passage assignments for multiple recordings
+     * 
+     * Takes an array of recording_id => passage_id pairs and updates them all.
+     * Returns the number of successful updates.
+     *
+     * Example:
+     * $recording_passages = [
+     *     1 => 5,  // Assign recording 1 to passage 5
+     *     2 => 5,  // Assign recording 2 to passage 5
+     *     3 => 7   // Assign recording 3 to passage 7
+     * ];
+     *
+     * @param array $recording_passages Associative array of recording_id => passage_id pairs
+     * @return int Number of successfully updated recordings
+     */
+    public function bulk_update_recordings($recording_passages) {
+        $success_count = 0;
+        
+        foreach ($recording_passages as $recording_id => $passage_id) {
+            if ($this->update_recording_passage($recording_id, $passage_id)) {
+                $success_count++;
+            }
+        }
+        
+        return $success_count;
+    }
+
+
+    /**
+     * Get recording statistics for a passage
+     * 
+     * Returns detailed statistics about recordings associated with a specific passage,
+     * including total count, average duration, and assessment scores.
+     *
+     * @param int $passage_id Passage ID to get statistics for
+     * @return object Statistics object with properties:
+     *                - total_recordings: Total number of recordings
+     *                - avg_duration: Average duration in seconds
+     *                - total_assessed: Number of recordings that have been assessed
+     *                - avg_score: Average assessment score
+     */
+    public function get_passage_recording_stats($passage_id) {
+        // ... @TODO: implement new method for detailed stats ...
+    }
+
+
+
 
     /**
      * Get passage by ID
@@ -695,27 +792,34 @@ class Reading_Assessment_Database {
     public function get_passage_statistics($passage_id) {
         $stats = $this->db->get_row(
             $this->db->prepare(
-                "SELECT
+                "SELECT 
                     COUNT(*) as total_attempts,
                     AVG(normalized_score) as average_score,
                     AVG(total_score) as total_score,
-                    COUNT(DISTINCT recording_id) as total_recordings
-                FROM {$this->db->prefix}ra_assessments
-                WHERE recording_id IN (
-                    SELECT id FROM {$this->db->prefix}ra_recordings
-                    WHERE passage_id = %d
-                )",
+                    COUNT(DISTINCT r.id) as recording_count
+                FROM {$this->db->prefix}ra_assessments a
+                RIGHT JOIN {$this->db->prefix}ra_recordings r ON a.recording_id = r.id
+                WHERE r.passage_id = %d",
                 $passage_id
             )
         );
-
+    
         return $stats ? $stats : (object)[
             'total_attempts' => 0,
             'average_score' => 0,
             'total_score' => 0,
-            'total_recordings' => 0
+            'recording_count' => 0
         ];
     }
+
+    public function get_passage_recording_count($passage_id) {
+        return (int)$this->db->get_var($this->db->prepare(
+            "SELECT COUNT(*) FROM {$this->db->prefix}ra_recordings 
+             WHERE passage_id = %d",
+            $passage_id
+        ));
+    }
+
 
     /**
      * Save an assessment for a recording
@@ -761,5 +865,78 @@ class Reading_Assessment_Database {
         }
 
         return $wpdb->insert_id;
+    }
+
+    /**
+     * Get orphaned recordings that need passage assignment
+     * 
+     * Retrieves recordings with missing or invalid passage IDs,
+     * along with relevant metadata to help identify correct passage.
+     *
+     * @param int $limit Maximum number of records to process at once
+     * @param int $offset Number of records to skip
+     * @return array Array of recording objects with metadata
+     */
+    public function get_orphaned_recordings($limit = 50, $offset = 0) {
+        return $this->db->get_results($this->db->prepare(
+            "SELECT r.*, u.display_name, u.user_email 
+            FROM {$this->db->prefix}ra_recordings r
+            JOIN {$this->db->users} u ON r.user_id = u.ID
+            WHERE r.passage_id = 0 OR r.passage_id IS NULL
+            ORDER BY r.created_at DESC
+            LIMIT %d OFFSET %d",
+            $limit,
+            $offset
+        ));
+    }
+
+    /**
+     * Get total count of orphaned recordings
+     * 
+     * Used for pagination and progress tracking in the repair tool.
+     *
+     * @return int Total number of recordings needing repair
+     */
+    public function get_total_orphaned_recordings() {
+        return (int)$this->db->get_var(
+            "SELECT COUNT(*) 
+            FROM {$this->db->prefix}ra_recordings 
+            WHERE passage_id = 0 OR passage_id IS NULL"
+        );
+    }
+
+    /**
+     * Update passage ID for a batch of recordings
+     * 
+     * @param array $updates Array of recording_id => passage_id pairs
+     * @return array Array containing success count and error messages
+     */
+    public function batch_update_recordings($updates) {
+        $results = array(
+            'success' => 0,
+            'errors' => array()
+        );
+
+        foreach ($updates as $recording_id => $passage_id) {
+            $result = $this->db->update(
+                $this->db->prefix . 'ra_recordings',
+                array('passage_id' => $passage_id),
+                array('id' => $recording_id),
+                array('%d'),
+                array('%d')
+            );
+
+            if ($result !== false) {
+                $results['success']++;
+            } else {
+                $results['errors'][] = sprintf(
+                    'Failed to update recording %d: %s',
+                    $recording_id,
+                    $this->db->last_error
+                );
+            }
+        }
+
+        return $results;
     }
 }
