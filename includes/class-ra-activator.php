@@ -6,11 +6,13 @@
  * @subpackage ReadingAssessment/includes
  */
 
- class Reading_Assessment_Activator {
+class Reading_Assessment_Activator
+{
     /**
      * Create the necessary database tables and plugin setup.
      */
-    public static function activate() {
+    public static function activate()
+    {
         self::create_database_tables();
         self::upgrade_database_schema();
         self::create_directories();
@@ -21,7 +23,8 @@
     /**
      * Add new columns and upgrade database schema
      */
-    private static function upgrade_database_schema() {
+    private static function upgrade_database_schema()
+    {
         global $wpdb;
         $current_db_version = get_option('ra_db_version', '1.0');
 
@@ -95,7 +98,8 @@
     /**
      * Create all required database tables
      */
-    private static function create_database_tables() {
+    private static function create_database_tables()
+    {
         global $wpdb;
         $charset_collate = $wpdb->get_charset_collate();
         require_once(ABSPATH . 'wp-admin/includes/upgrade.php');
@@ -148,12 +152,20 @@
                 user_answer text NOT NULL,
                 is_correct tinyint(1) DEFAULT 0,
                 score float DEFAULT 0,
+                created_at datetime DEFAULT CURRENT_TIMESTAMP,
+                updated_at datetime DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
                 PRIMARY KEY (id),
                 KEY recording_id (recording_id),
                 KEY question_id (question_id),
-                CONSTRAINT fk_response_recording FOREIGN KEY (recording_id) REFERENCES {$wpdb->prefix}ra_recordings (id) ON DELETE CASCADE,
-                CONSTRAINT fk_response_question FOREIGN KEY (question_id) REFERENCES {$wpdb->prefix}ra_questions (id) ON DELETE CASCADE
-            ) {$charset_collate};",
+                CONSTRAINT fk_response_recording
+                    FOREIGN KEY (recording_id)
+                    REFERENCES {$wpdb->prefix}ra_recordings (id)
+                    ON DELETE CASCADE,
+                CONSTRAINT fk_response_question
+                    FOREIGN KEY (question_id)
+                    REFERENCES {$wpdb->prefix}ra_questions (id)
+                    ON DELETE CASCADE
+            ) $charset_collate;",
 
             'ra_assessments' => "CREATE TABLE IF NOT EXISTS {$wpdb->prefix}ra_assessments (
                 id bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT,
@@ -165,6 +177,7 @@
                 KEY recording_id (recording_id),
                 CONSTRAINT fk_assessment_recording FOREIGN KEY (recording_id) REFERENCES {$wpdb->prefix}ra_recordings (id) ON DELETE CASCADE
             ) {$charset_collate};",
+
             'ra_assignments' => "CREATE TABLE IF NOT EXISTS {$wpdb->prefix}ra_assignments (
                 id bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT,
                 user_id bigint(20) UNSIGNED NOT NULL,
@@ -179,6 +192,7 @@
                 CONSTRAINT fk_assignment_user FOREIGN KEY (user_id) REFERENCES {$wpdb->users} (ID) ON DELETE CASCADE,
                 CONSTRAINT fk_assignment_passage FOREIGN KEY (passage_id) REFERENCES {$wpdb->prefix}ra_passages (id) ON DELETE CASCADE
             ) {$charset_collate};",
+
             'ra_admin_interactions' => "CREATE TABLE IF NOT EXISTS {$wpdb->prefix}ra_admin_interactions (
                 id bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT,
                 user_id bigint(20) UNSIGNED NOT NULL,
@@ -206,7 +220,8 @@
     /**
      * Create required directories
      */
-    private static function create_directories() {
+    private static function create_directories()
+    {
         $upload_dir = wp_upload_dir();
         $dirs = array(
             $upload_dir['basedir'] . '/reading-assessment',
@@ -219,7 +234,7 @@
                 if (!wp_mkdir_p($dir)) {
                     error_log("Failed to create directory: {$dir}");
                 } else {
-                    // Create .htaccess to protect directory listing
+                    // Create .htaccess to protect sneaky directory listing
                     $htaccess = $dir . '/.htaccess';
                     if (!file_exists($htaccess)) {
                         file_put_contents($htaccess, "Options -Indexes\n");
@@ -232,7 +247,8 @@
     /**
      * Set plugin options
      */
-    private static function set_plugin_options() {
+    private static function set_plugin_options()
+    {
         $options = array(
             'ra_version' => RA_VERSION,
             'ra_db_version' => '1.0',
