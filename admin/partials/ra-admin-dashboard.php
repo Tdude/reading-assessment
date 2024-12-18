@@ -10,7 +10,7 @@ $upload_dir = wp_upload_dir();
  * Renders texxt for settings page in Klingon.
  */
 
-$external_url = 'https://www.rugd.se';
+$external_url = 'https://www.github.com/Tdude';
 
 // Create the URL and link text separately for better translation support. @TODO: make prettier.
 $default_page_link = sprintf(
@@ -32,7 +32,7 @@ echo '<div class="wrap">';
     echo '<h2>' . esc_html__('Här är en text som förklarar saker', 'reading-assessment') . '</h2>';
     echo '<p>' . esc_html__('Om du klickar på knappen Visa/dölj ska sidan komma ihåg hur du vill ha det. Mitt bidrag till UX-världen.', 'reading-assessment') . '</p>';
     echo '<p>' . esc_html__('Mer text och mer o mer', 'reading-assessment') . '</p>';
-    echo '<p>' . esc_html__('Blajar på dårå och så vidare i ny pargraf.', 'reading-assessment') . '</p>';
+    echo '<p>' . esc_html__('Blajar på dårå och så vidare i ny pargraf. Här är min <a href="' . $external_url . '">Länk till Github</a>', 'reading-assessment') . '</p>';
     echo '</div>';
 
     // Right column
@@ -67,11 +67,40 @@ echo '<div class="wrap">';
 echo '</div>'; // .wrap
 
 
+$passage_filter = isset($_GET['passage_filter']) ? intval($_GET['passage_filter']) : 0;
+// Get passage info if filtered
+$passage_title = '';
+if ($passage_filter) {
+    $ra_db = new Reading_Assessment_Database();
+    $passage = $ra_db->get_passage($passage_filter);
+    if ($passage) {
+        $passage_title = $passage->title;
+    }
+}
 
 
 ?>
 <div class="wrap">
-    <h1><?php echo esc_html(get_admin_page_title()); ?></h1>
+    <h1>
+    <?php
+        echo esc_html(get_admin_page_title());
+        if ($passage_filter && $passage_title) {
+            echo ' - ' . sprintf(
+                __('Inspelningar för "%s"', 'reading-assessment'),
+                esc_html($passage_title)
+            );
+        }
+        ?>
+    </h1>
+    <?php if ($passage_filter): ?>
+        <p>
+            <a href="<?php echo esc_url(admin_url('admin.php?page=reading-assessment')); ?>"
+            class="button">
+                <?php _e('Visa alla inspelningar', 'reading-assessment'); ?>
+            </a>
+        </p>
+    <?php endif; ?>
+
     <div class="ra-dashboard-widgets">
 
         <div class="ra-widget">
@@ -96,28 +125,33 @@ echo '</div>'; // .wrap
                 // Get recordings for current page (with caching)
                 $cache_key = 'ra_recordings_page_' . $current_page;
                 $recent_recordings = wp_cache_get($cache_key);
+                $where_conditions = array('1=1');
+                $where_args = array();
 
-                if (false === $recent_recordings) {
-                    global $wpdb;
-                    $recent_recordings = $wpdb->get_results(
-                        $wpdb->prepare(
-                            "SELECT r.*, u.display_name, u.ID as user_id,
-                                    r.audio_file_path, r.duration,
-                                    DATE_FORMAT(r.created_at, '%Y/%m') as date_path,
-                                    COUNT(a.id) as assessment_count,
-                                    AVG(a.normalized_score) as avg_assessment_score
-                            FROM {$wpdb->prefix}ra_recordings r
-                            JOIN {$wpdb->users} u ON r.user_id = u.ID
-                            LEFT JOIN {$wpdb->prefix}ra_assessments a ON r.id = a.recording_id
-                            GROUP BY r.id
-                            ORDER BY r.created_at DESC
-                            LIMIT %d OFFSET %d",
-                            $per_page,
-                            $offset
-                        )
-                    );
-                    wp_cache_set($cache_key, $recent_recordings, '', 300); // Cache for 5 minutes
+                if ($passage_filter) {
+                    $where_conditions[] = 'r.passage_id = %d';
+                    $where_args[] = $passage_filter;
                 }
+
+                $where_clause = ' WHERE ' . implode(' AND ', $where_conditions);
+
+                $recent_recordings = $wpdb->get_results(
+                    $wpdb->prepare(
+                        "SELECT r.*, u.display_name, u.ID as user_id,
+                                r.audio_file_path, r.duration,
+                                DATE_FORMAT(r.created_at, '%Y/%m') as date_path,
+                                COUNT(a.id) as assessment_count,
+                                AVG(a.normalized_score) as avg_assessment_score
+                        FROM {$wpdb->prefix}ra_recordings r
+                        JOIN {$wpdb->users} u ON r.user_id = u.ID
+                        LEFT JOIN {$wpdb->prefix}ra_assessments a ON r.id = a.recording_id
+                        {$where_clause}
+                        GROUP BY r.id
+                        ORDER BY r.created_at DESC
+                        LIMIT %d OFFSET %d",
+                        array_merge($where_args, array($per_page, $offset))
+                    )
+                );
 
                 if ($recent_recordings): ?>
                     <table class="wp-list-table widefat fixed striped">
@@ -222,7 +256,7 @@ echo '</div>'; // .wrap
                                         <?php printf(
                                             '%s av %s',
                                             $current_page,
-                                            $total_pages
+                                            $total_pagesq
                                         ); ?>
                                     </span>
 
@@ -350,8 +384,9 @@ echo '</div>'; // .wrap
 
             <?php if (get_option('ra_enable_tracking', true)): ?>
                 <div class="ra-stats-section">
-                    <h3><?php _e('Användaraktivitet idag', 'reading-assessment'); ?></h3>
+                    <h2><?php _e('Användaraktivitet idag', 'reading-assessment'); ?></h2>
                     <p><?php _e('(sneaky Bossman vill veta hur mycket du jobbar)', 'reading-assessment'); ?></p>
+                    <p><?php _e('Det här är en timer. Visar hur länge du haft fliken i fokus och antal klick.', 'reading-assessment'); ?></p>
                     <?php
                     global $wpdb;
                     $today = date('Y-m-d');
