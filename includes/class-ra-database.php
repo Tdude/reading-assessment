@@ -84,7 +84,6 @@ class Reading_Assessment_Database {
         }
     }
 
-
     /**
      * Create new question
      *
@@ -251,7 +250,6 @@ class Reading_Assessment_Database {
         return $recording;
     }
 
-
     /**
      * Save recording data with more detailed information
      *
@@ -285,6 +283,63 @@ class Reading_Assessment_Database {
         return $this->db->insert_id;
     }
 
+    /**
+     * Get recent recordings with pagination
+     */
+    public function get_recent_recordings($per_page, $offset, $passage_filter = 0) {
+        $where_conditions = array('1=1');
+        $where_args = array();
+
+        if ($passage_filter) {
+            $where_conditions[] = 'r.passage_id = %d';
+            $where_args[] = $passage_filter;
+        }
+
+        $where_clause = ' WHERE ' . implode(' AND ', $where_conditions);
+
+        $query = "SELECT r.*, u.display_name, u.ID as user_id,
+                r.audio_file_path, r.duration,
+                DATE_FORMAT(r.created_at, '%Y/%m') as date_path,
+                COUNT(a.id) as assessment_count,
+                AVG(a.normalized_score) as avg_assessment_score
+            FROM {$this->db->prefix}ra_recordings r
+            JOIN {$this->db->users} u ON r.user_id = u.ID
+            LEFT JOIN {$this->db->prefix}ra_assessments a ON r.id = a.recording_id
+            {$where_clause}
+            GROUP BY r.id
+            ORDER BY r.created_at DESC
+            LIMIT %d OFFSET %d";
+
+        return $this->db->get_results(
+            $this->db->prepare(
+                $query,
+                array_merge($where_args, array($per_page, $offset))
+            )
+        );
+    }
+
+    /**
+     * Get total count of recordings with optional passage filter
+     */
+    public function get_recordings_count($passage_filter = 0) {
+        $where = array('1=1');
+        $where_args = array();
+
+        if ($passage_filter) {
+            $where[] = 'passage_id = %d';
+            $where_args[] = $passage_filter;
+        }
+
+        $query = "SELECT COUNT(DISTINCT id)
+            FROM {$this->db->prefix}ra_recordings
+            WHERE " . implode(' AND ', $where);
+
+        if (!empty($where_args)) {
+            $query = $this->db->prepare($query, $where_args);
+        }
+
+        return (int) $this->db->get_var($query);
+    }
 
     /**
      * Save response to questions in the database
@@ -339,7 +394,6 @@ class Reading_Assessment_Database {
             return false;
         }
     }
-
 
     /**
      * Get recordings for a user
@@ -455,48 +509,6 @@ class Reading_Assessment_Database {
     }
 
     /**
-     * Get recording statistics
-     *
-     * @param array $filters Optional filters (user_id, passage_id, date_range)
-     * @return array Statistics about recordings
-     */
-    public function get_recording_statistics($filters = array()) {
-        $where = array('1=1');
-        $where_args = array();
-
-        if (isset($filters['user_id'])) {
-            $where[] = 'r.user_id = %d';
-            $where_args[] = $filters['user_id'];
-        }
-        if (isset($filters['passage_id'])) {
-            $where[] = 'r.passage_id = %d';
-            $where_args[] = $filters['passage_id'];
-        }
-        if (isset($filters['date_range'])) {
-            $where[] = 'r.created_at >= DATE_SUB(NOW(), INTERVAL %d DAY)';
-            $where_args[] = $filters['date_range'];
-        }
-
-        $where_clause = 'WHERE ' . implode(' AND ', $where);
-
-        return $this->db->get_row(
-            $this->db->prepare(
-                "SELECT
-                    COUNT(*) as total_recordings,
-                    COUNT(DISTINCT user_id) as unique_users,
-                    COUNT(DISTINCT passage_id) as unique_passages,
-                    AVG(duration) as avg_duration,
-                    MAX(created_at) as latest_recording
-                FROM {$this->db->prefix}ra_recordings r
-                $where_clause",
-                $where_args
-            ),
-            ARRAY_A
-        );
-    }
-
-
-    /**
      * Get unassigned recordings with user details and optional pagination
      *
      * Returns recordings that have no passage_id (0 or NULL) along with user display names.
@@ -583,27 +595,6 @@ class Reading_Assessment_Database {
         return $success_count;
     }
 
-
-    /**
-     * Get recording statistics for a passage
-     *
-     * Returns detailed statistics about recordings associated with a specific passage,
-     * including total count, average duration, and assessment scores.
-     *
-     * @param int $passage_id Passage ID to get statistics for
-     * @return object Statistics object with properties:
-     *                - total_recordings: Total number of recordings
-     *                - avg_duration: Average duration in seconds
-     *                - total_assessed: Number of recordings that have been assessed
-     *                - avg_score: Average assessment score
-     */
-    public function get_passage_recording_stats($passage_id) {
-        // ... @TODO: implement new method for detailed stats ...
-    }
-
-
-
-
     /**
      * Get passage by ID
      *
@@ -650,7 +641,7 @@ class Reading_Assessment_Database {
 
         error_log('Executing query: ' . $query);
 
-        $questions = $this->db->get_results($query, ARRAY_A);
+        $questions = $this->db->get_results($query, OBJECT);
 
         error_log('Database returned questions: ' . print_r($questions, true));
         return $questions;
@@ -689,10 +680,32 @@ class Reading_Assessment_Database {
         );
     }
 
+    /* FOR DEBUGGING */
+    function get_assigned_passages() {
+        global $wpdb;
+
+        $query = $wpdb->prepare(
+            "SELECT DISTINCT p.*
+            FROM {$wpdb->prefix}passages p
+            LEFT JOIN {$wpdb->prefix}passage_assignments pa
+            ON p.id = pa.passage_id
+            WHERE pa.user_id = %d",
+            get_current_user_id()
+        );
+
+        // Debug output
+        error_log('Passages Query: ' . $query);
+        $results = $wpdb->get_results($query);
+        error_log('Number of results: ' . count($results));
+
+        return $results;
+    }
+
+
     /**
      * Remove assignment
      */
-    public function remove_assignment($assignment_id) {
+    public function delete_assignment($assignment_id) {
         return $this->db->delete(
             $this->db->prefix . 'ra_assignments',
             array('id' => $assignment_id),
@@ -821,12 +834,16 @@ class Reading_Assessment_Database {
                 array('%d')
             );
 
-            $this->db->delete(
-                $this->db->prefix . 'ra_assessments',
-                array('passage_id' => $passage_id),
-                array('%d')
+            // Delete assessments that are related to recordings of this passage
+            $assessment_query = $this->db->prepare(
+                "DELETE a FROM {$this->db->prefix}ra_assessments a
+                 INNER JOIN {$this->db->prefix}ra_recordings r ON a.recording_id = r.id
+                 WHERE r.passage_id = %d",
+                $passage_id
             );
+            $this->db->query($assessment_query);
 
+            // Delete recordings
             $this->db->delete(
                 $this->db->prefix . 'ra_recordings',
                 array('passage_id' => $passage_id),
@@ -847,39 +864,12 @@ class Reading_Assessment_Database {
             $this->db->query('COMMIT');
             return true;
         } catch (Exception $e) {
+            error_log('Delete passage error: ' . $e->getMessage());
             $this->db->query('ROLLBACK');
             return false;
         }
     }
 
-    /**
-     * Get assessment statistics for a passage
-     *
-     * @param int $passage_id Passage ID
-     * @return array Statistics including average score, completion times, etc.
-     */
-    public function get_passage_statistics($passage_id) {
-        $stats = $this->db->get_row(
-            $this->db->prepare(
-                "SELECT
-                    COUNT(*) as total_attempts,
-                    AVG(normalized_score) as average_score,
-                    AVG(total_score) as total_score,
-                    COUNT(DISTINCT r.id) as recording_count
-                FROM {$this->db->prefix}ra_assessments a
-                RIGHT JOIN {$this->db->prefix}ra_recordings r ON a.recording_id = r.id
-                WHERE r.passage_id = %d",
-                $passage_id
-            )
-        );
-
-        return $stats ? $stats : (object)[
-            'total_attempts' => 0,
-            'average_score' => 0,
-            'total_score' => 0,
-            'recording_count' => 0
-        ];
-    }
 
     public function get_passage_recording_count($passage_id) {
         return (int)$this->db->get_var($this->db->prepare(
@@ -1007,5 +997,327 @@ class Reading_Assessment_Database {
         }
 
         return $results;
+    }
+
+    /**
+     * Trying to gather all stats methods here
+    */
+/**
+    * Get dashboard statistics
+    *
+    * @return object Statistics with total recordings, unique users, assessments, etc.
+    */
+    public function get_dashboard_statistics() {
+        error_log('Running dashboard statistics query');
+
+        $query = "SELECT
+            COUNT(DISTINCT r.id) as total_recordings,
+            COUNT(DISTINCT r.user_id) as unique_users,
+            COUNT(DISTINCT a.id) as total_assessments,
+            AVG(a.normalized_score) as avg_score,
+            SUM(r.duration) as total_duration
+        FROM {$this->db->prefix}ra_recordings r
+        LEFT JOIN {$this->db->prefix}ra_assessments a ON r.id = a.recording_id";
+
+        error_log('Statistics query: ' . $query);
+        $stats = $this->db->get_row($query);
+        error_log('Statistics result: ' . print_r($stats, true));
+
+        // Return a default object if no results
+        if (!$stats) {
+            return (object)[
+                'total_recordings' => 0,
+                'unique_users' => 0,
+                'total_assessments' => 0,
+                'avg_score' => 0,
+                'total_duration' => 0
+            ];
+        }
+
+        return $stats;
+    }
+
+    /**
+        * Get recording statistics
+        *
+        * @param array $filters Optional filters (user_id, passage_id, date_range)
+        * @return array Statistics about recordings
+        */
+    public function get_recording_statistics($filters = array()) {
+        $where = array('1=1');
+        $where_args = array();
+
+        if (isset($filters['user_id'])) {
+            $where[] = 'r.user_id = %d';
+            $where_args[] = $filters['user_id'];
+        }
+        if (isset($filters['passage_id'])) {
+            $where[] = 'r.passage_id = %d';
+            $where_args[] = $filters['passage_id'];
+        }
+        if (isset($filters['date_range'])) {
+            $where[] = 'r.created_at >= DATE_SUB(NOW(), INTERVAL %d DAY)';
+            $where_args[] = $filters['date_range'];
+        }
+
+        $where_clause = 'WHERE ' . implode(' AND ', $where);
+
+        return $this->db->get_row(
+            $this->db->prepare(
+                "SELECT
+                    COUNT(*) as total_recordings,
+                    COUNT(DISTINCT user_id) as unique_users,
+                    COUNT(DISTINCT passage_id) as unique_passages,
+                    AVG(duration) as avg_duration,
+                    MAX(created_at) as latest_recording
+                FROM {$this->db->prefix}ra_recordings r
+                $where_clause",
+                $where_args
+            ),
+            ARRAY_A
+        );
+    }
+
+    /**
+         * Get assessment statistics for a passage
+         *
+         * @param int $passage_id Passage ID
+         * @return array Statistics including average score, completion times, etc.
+         */
+        public function get_passage_statistics($passage_id) {
+            $stats = $this->db->get_row(
+                $this->db->prepare(
+                    "SELECT
+                        COUNT(*) as total_attempts,
+                        AVG(normalized_score) as average_score,
+                        AVG(total_score) as total_score,
+                        COUNT(DISTINCT r.id) as recording_count
+                    FROM {$this->db->prefix}ra_assessments a
+                    RIGHT JOIN {$this->db->prefix}ra_recordings r ON a.recording_id = r.id
+                    WHERE r.passage_id = %d",
+                    $passage_id
+                )
+            );
+
+            return $stats ? $stats : (object)[
+                'total_attempts' => 0,
+                'average_score' => 0,
+                'total_score' => 0,
+                'recording_count' => 0
+            ];
+        }
+
+    /**
+     * Get comprehensive passage statistics
+     * Returns count of passages and their recordings
+     *
+     * @return array Array of passages with recording counts
+     */
+     public function get_passage_statistics_overview() {
+        $query = "
+            SELECT
+                p.id,
+                p.title,
+                COUNT(r.id) as recording_count,
+                AVG(a.normalized_score) as avg_grade,
+                MIN(a.normalized_score) as min_grade,
+                MAX(a.normalized_score) as max_grade
+            FROM {$this->db->prefix}ra_passages p
+            LEFT JOIN {$this->db->prefix}ra_recordings r ON p.id = r.passage_id
+            LEFT JOIN {$this->db->prefix}ra_assessments a ON r.id = a.recording_id
+            GROUP BY p.id, p.title
+            ORDER BY p.title ASC";
+
+        return $this->db->get_results($query);
+    }
+
+    /**
+     * Get detailed recording statistics per passage
+     *
+     * @return array Array of passages with recording counts and assessment stats
+     */
+    public function get_recordings_per_passage() {
+        $query = "
+            SELECT
+                p.id,
+                p.title,
+                COUNT(DISTINCT r.id) as recording_count,
+                COUNT(DISTINCT r.user_id) as unique_users,
+                AVG(a.normalized_score) as avg_grade,
+                COUNT(DISTINCT a.id) as assessment_count
+            FROM {$this->db->prefix}ra_passages p
+            LEFT JOIN {$this->db->prefix}ra_recordings r ON p.id = r.passage_id
+            LEFT JOIN {$this->db->prefix}ra_assessments a ON r.id = a.recording_id
+            GROUP BY p.id, p.title
+            ORDER BY recording_count DESC";
+
+        return $this->db->get_results($query);
+    }
+
+    /**
+     * Get user performance statistics
+     *
+     * @return array Array of users with their recording and assessment stats
+     */
+    public function get_user_performance_stats() {
+        $query = "
+            SELECT
+                u.ID,
+                u.display_name,
+                COUNT(DISTINCT r.id) as recording_count,
+                AVG(a.normalized_score) as avg_grade,
+                MIN(a.normalized_score) as min_grade,
+                MAX(a.normalized_score) as max_grade,
+                COUNT(DISTINCT a.id) as times_assessed
+            FROM {$this->db->users} u
+            JOIN {$this->db->prefix}ra_recordings r ON u.ID = r.user_id
+            LEFT JOIN {$this->db->prefix}ra_assessments a ON r.id = a.recording_id
+            GROUP BY u.ID, u.display_name
+            HAVING recording_count > 0
+            ORDER BY avg_grade DESC";
+
+        return $this->db->get_results($query);
+    }
+
+    /**
+     * Get overall system statistics
+     *
+     * @return object Statistics object with overall metrics
+     */
+    public function get_overall_statistics() {
+        $query = "
+            SELECT
+                (SELECT COUNT(*) FROM {$this->db->prefix}ra_passages) as total_passages,
+                (SELECT COUNT(*) FROM {$this->db->prefix}ra_recordings) as total_recordings,
+                (SELECT COUNT(DISTINCT user_id) FROM {$this->db->prefix}ra_recordings) as total_users,
+                (SELECT AVG(normalized_score) FROM {$this->db->prefix}ra_assessments) as overall_avg_grade,
+                (SELECT COUNT(*) FROM {$this->db->prefix}ra_assessments) as total_assessments";
+
+        return $this->db->get_row($query);
+    }
+
+    /**
+     * Get assessment distribution
+     * Groups assessments by score ranges
+     *
+     * @return array Array of assessment counts by score range
+     */
+    public function get_assessment_distribution() {
+        $query = "
+            SELECT
+                CASE
+                    WHEN normalized_score BETWEEN 0 AND 5 THEN '0-5'
+                    WHEN normalized_score BETWEEN 6 AND 10 THEN '6-10'
+                    WHEN normalized_score BETWEEN 11 AND 15 THEN '11-15'
+                    WHEN normalized_score BETWEEN 16 AND 20 THEN '16-20'
+                END as score_range,
+                COUNT(*) as count
+            FROM {$this->db->prefix}ra_assessments
+            GROUP BY score_range
+            ORDER BY score_range";
+
+        return $this->db->get_results($query);
+    }
+
+
+    /**
+     * Get student progress over time
+     *
+     * @param int $user_id User ID to track
+     * @param string $period 'week', 'month', or 'year'
+     * @param int $limit How many periods back to look
+     * @return array Progress data over time
+     */
+    public function get_student_progress_over_time($user_id, $period = 'month', $limit = 12) {
+        $period_format = $period === 'week' ? '%Y-%u' :
+                        ($period === 'month' ? '%Y-%m' : '%Y');
+
+        $period_label = $period === 'week' ? 'CONCAT("Vecka ", WEEK(r.created_at))' :
+                    ($period === 'month' ? 'DATE_FORMAT(r.created_at, "%M %Y")' : 'YEAR(r.created_at)');
+
+        $query = $this->db->prepare(
+            "SELECT
+                {$period_label} as period_label,
+                DATE_FORMAT(r.created_at, '{$period_format}') as period,
+                COUNT(DISTINCT r.id) as recording_count,
+                AVG(a.normalized_score) as avg_grade,
+                MIN(a.normalized_score) as min_grade,
+                MAX(a.normalized_score) as max_grade,
+                COUNT(DISTINCT a.id) as assessments_count
+            FROM {$this->db->prefix}ra_recordings r
+            LEFT JOIN {$this->db->prefix}ra_assessments a ON r.id = a.recording_id
+            WHERE r.user_id = %d
+            GROUP BY period
+            ORDER BY period DESC
+            LIMIT %d",
+            $user_id,
+            $limit
+        );
+
+        return array_reverse($this->db->get_results($query)); // Reverse to show oldest first
+    }
+
+    /**
+     * Get class-wide progress over time
+     *
+     * @param string $period 'week', 'month', or 'year'
+     * @param int $limit How many periods back to look
+     * @return array Progress data over time
+     */
+    public function get_class_progress_over_time($period = 'month', $limit = 12) {
+        try {
+            $period_format = $period === 'week' ? '%Y-%u' :
+                            ($period === 'month' ? '%Y-%m' : '%Y');
+
+            $period_label = $period === 'week' ? 'CONCAT("Vecka ", WEEK(r.created_at))' :
+                           ($period === 'month' ? 'DATE_FORMAT(r.created_at, "%M %Y")' : 'YEAR(r.created_at)');
+
+            $query = $this->db->prepare(
+                "SELECT
+                    {$period_label} as period_label,
+                    DATE_FORMAT(r.created_at, %s) as period,
+                    COUNT(DISTINCT r.id) as recording_count,
+                    COUNT(DISTINCT r.user_id) as unique_users,
+                    AVG(a.normalized_score) as avg_grade,
+                    MIN(a.normalized_score) as min_grade,
+                    MAX(a.normalized_score) as max_grade
+                FROM {$this->db->prefix}ra_recordings r
+                LEFT JOIN {$this->db->prefix}ra_assessments a ON r.id = a.recording_id
+                GROUP BY period
+                ORDER BY period DESC
+                LIMIT %d",
+                $period_format,
+                $limit
+            );
+
+            error_log('Progress query: ' . $query);
+            $results = $this->db->get_results($query);
+            error_log('Progress results: ' . print_r($results, true));
+
+            return array_reverse($results); // Reverse to show oldest first
+
+        } catch (Exception $e) {
+            error_log('Database error in get_class_progress_over_time: ' . $e->getMessage());
+            return false;
+        }
+    }
+
+    /**
+     * Get all users who have made recordings
+     *
+     * @return array Array of user objects with recording counts
+     */
+    public function get_users_with_recordings() {
+        $query = "
+            SELECT DISTINCT
+                u.ID,
+                u.display_name,
+                COUNT(DISTINCT r.id) as recording_count
+            FROM {$this->db->prefix}users u
+            JOIN {$this->db->prefix}ra_recordings r ON u.ID = r.user_id
+            GROUP BY u.ID, u.display_name
+            ORDER BY u.display_name ASC";
+
+        return $this->db->get_results($query);
     }
 }

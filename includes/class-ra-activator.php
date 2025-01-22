@@ -1,5 +1,5 @@
 <?php
-/**
+/** class-ra-activator.php
  * Fired during plugin activation.
  *
  * @package    ReadingAssessment

@@ -1,5 +1,5 @@
 <?php
-/**
+/** class-ra-recorder.php
  * Handles audio recording functionality.
  *
  * @package    ReadingAssessment

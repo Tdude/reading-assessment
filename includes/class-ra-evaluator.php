@@ -1,5 +1,5 @@
 <?php
-/**
+/** class-ra-evaluator.php
  * Handles assessment evaluation and scoring.
  *
  * @package    ReadingAssessment

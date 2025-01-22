@@ -1,6 +1,6 @@
 <?php
 /**
- * Reading Assessment
+ * reading-assessment.php
  *
  * @package     ReadingAssessment
  * @author      Tibor Berki

@@ -1,5 +1,5 @@
 <?php
-/**
+/** class-ra-loader.php
  * Register all actions and filters for the plugin.
  *
  * @package    ReadingAssessment
