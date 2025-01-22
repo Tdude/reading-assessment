@@ -1,8 +1,11 @@
 <?php
+/**
+ * ra-admin-recordings.php
+*/
 if (!defined('WPINC')) {
     die;
 }
-
+$debug_mode = WP_DEBUG && current_user_can('manage_options');
 $ra_db = new Reading_Assessment_Database();
 $passages = $ra_db->get_all_passages();
 
@@ -64,7 +67,7 @@ $total_unassigned = $ra_db->get_total_unassigned_recordings();
 $total_pages = ceil($total_unassigned / $per_page);
 ?>
 
-<div class="wrap">
+<div class="wrap" data-page="recordings-management">
     <h1><?php echo esc_html__('Hantera inspelningar', 'reading-assessment'); ?></h1>
 
     <?php if (isset($success_message)): ?>
@@ -85,7 +88,12 @@ $total_pages = ceil($total_unassigned / $per_page);
 
         <div class="tablenav top">
             <div class="alignleft actions bulkactions">
-                <select name="bulk_passage_id" id="bulk-passage-id">
+                <select name="bulk_action" id="bulk-action-selector-top">
+                    <option value=""><?php _e('Massåtgärder', 'reading-assessment'); ?></option>
+                    <option value="assign"><?php _e('Tilldela text', 'reading-assessment'); ?></option>
+                    <option value="delete"><?php _e('Radera', 'reading-assessment'); ?></option>
+                </select>
+                <select name="bulk_passage_id" id="bulk-passage-id" style="display: none;">
                     <option value=""><?php _e('Välj text...', 'reading-assessment'); ?></option>
                     <?php foreach ($passages as $passage): ?>
                     <option value="<?php echo esc_attr($passage->id); ?>">
@@ -93,8 +101,8 @@ $total_pages = ceil($total_unassigned / $per_page);
                     </option>
                     <?php endforeach; ?>
                 </select>
-                <button type="button" class="button" id="bulk-assign">
-                    <?php _e('Tilldela markerade', 'reading-assessment'); ?>
+                <button type="button" class="button" id="bulk-apply">
+                    <?php _e('Verkställ', 'reading-assessment'); ?>
                 </button>
             </div>
         </div>
@@ -110,21 +118,35 @@ $total_pages = ceil($total_unassigned / $per_page);
                     <th><?php _e('Längd', 'reading-assessment'); ?></th>
                     <th><?php _e('Inspelad', 'reading-assessment'); ?></th>
                     <th><?php _e('Tilldela till text', 'reading-assessment'); ?></th>
+                    <th><?php _e('Åtgärd', 'reading-assessment'); ?></th>
                 </tr>
             </thead>
             <tbody>
                 <?php foreach ($unassigned_recordings as $recording):
                         $file_path = wp_upload_dir()['baseurl'] . $recording->audio_file_path;
+                        $file_system_path = wp_upload_dir()['basedir'] . $recording->audio_file_path;
+
+                        if ($debug_mode && !file_exists($file_system_path)) {
+                            error_log(sprintf(
+                                'Missing audio file for recording %d. Expected path: %s',
+                                $recording->id,
+                                $file_system_path
+                            ));
+                        }
                     ?>
                 <tr>
                     <th scope="row" class="check-column">
                         <input type="checkbox" name="recording_ids[]" value="<?php echo esc_attr($recording->id); ?>">
                     </th>
                     <td><?php echo esc_html($recording->display_name); ?></td>
-                    <td>
+                    <td><?php
+                        if (file_exists($file_system_path)): ?>
                         <audio controls style="max-width: 250px;">
                             <source src="<?php echo esc_url($file_path); ?>" type="audio/webm">
                         </audio>
+                        <?php else: ?>
+                        <span class="error-text"><?php _e('Ljudfil saknas', 'reading-assessment'); ?></span>
+                        <?php endif; ?>
                     </td>
                     <td><?php echo esc_html($recording->duration ? round($recording->duration, 1) . 's' : 'N/A'); ?>
                     </td>
@@ -140,6 +162,12 @@ $total_pages = ceil($total_unassigned / $per_page);
                             </option>
                             <?php endforeach; ?>
                         </select>
+                    </td>
+                    <td>
+                        <button type="button" class="button button-link-delete" data-action="delete"
+                            data-module="recordings" data-id="<?php echo esc_attr($recording->id); ?>">
+                            <?php _e('Radera', 'reading-assessment'); ?>
+                        </button>
                     </td>
                 </tr>
                 <?php endforeach; ?>
@@ -181,7 +209,7 @@ $total_pages = ceil($total_unassigned / $per_page);
             $('input[name="recording_ids[]"]:checked').each(function() {
                 var recordingId = $(this).val();
                 $('select[name="recording_passages[' + recordingId + ']"]').val(
-                selectedPassage);
+                    selectedPassage);
             });
         });
 
