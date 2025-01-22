@@ -3,6 +3,7 @@ document.addEventListener("DOMContentLoaded", () => {
   document
     .querySelectorAll(".ra-audio-recorder")
     .forEach((recorderContainer) => {
+      console.log("Found recorder container:", recorderContainer);
       initializeRecorder(recorderContainer);
     });
 });
@@ -16,8 +17,9 @@ function initializeRecorder(container) {
   const trimBtn = document.getElementById("trim-audio");
   const status = document.getElementById("status");
   const questionsSection = document.getElementById("questions-section");
+  const controls = document.querySelector(".ra-controls");
 
-  // Initialize WaveSurfer with RegionsPlugin
+  // Initialize WaveSurfer with RegionsPlugin first
   const regions = WaveSurfer.Regions.create({
     dragSelection: {
       slop: 5,
@@ -35,6 +37,24 @@ function initializeRecorder(container) {
   let recorder;
   let mediaStream;
   let audioBlob;
+
+  // Now check for valid passage ID
+  const passageId = document.getElementById("current-passage-id").value;
+  const hasValidPassage = passageId && passageId !== "0";
+
+  if (!hasValidPassage) {
+    controls.classList.add("ra-controls-disabled");
+    startBtn.disabled = true;
+    status.textContent = "Välj en text innan du börjar spela in.";
+  } else {
+    controls.classList.remove("ra-controls-disabled");
+    startBtn.disabled = false;
+    stopBtn.disabled = true;
+    uploadBtn.disabled = true;
+    playbackBtn.disabled = true;
+    trimBtn.disabled = true;
+    status.textContent = "Klicka på 'Spela in' för att börja.";
+  }
 
   // Function to trim audio
   async function trimAudio(audioBlob, start, end) {
@@ -85,6 +105,7 @@ function initializeRecorder(container) {
     });
   }
 
+  // startBtn handler
   startBtn.addEventListener("click", async () => {
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
       alert("Det verkar som din webbläsare inte stöder inspelning tyvärr.");
@@ -112,6 +133,9 @@ function initializeRecorder(container) {
         wavesurfer.load(audioUrl);
         status.textContent =
           "Inspelningen är stoppad. Du kan nu spela upp, trimma eller ladda upp den.";
+
+        // Update states after stopping
+        startBtn.disabled = false;
         stopBtn.disabled = true;
         uploadBtn.disabled = false;
         playbackBtn.disabled = false;
@@ -120,12 +144,17 @@ function initializeRecorder(container) {
 
       recorder.start();
       status.textContent = "Spelar in...";
+
+      // Update states when starting
       startBtn.disabled = true;
       stopBtn.disabled = false;
+      uploadBtn.disabled = true;
+      playbackBtn.disabled = true;
+      trimBtn.disabled = true;
     } catch (err) {
       console.error("Recording error:", err);
       alert(
-        "Kunde inte starta inspelningen. Kontrollera att mikrofonen är ansluten."
+        "Kunde inte starta inspelningen. Kontrollera att mikrofonen är aktiverad."
       );
     }
   });
@@ -142,13 +171,12 @@ function initializeRecorder(container) {
   uploadBtn.addEventListener("click", async () => {
     if (!audioBlob) return;
 
-    const passageId = document.getElementById("current-passage-id").value;
-    if (!passageId) {
-      alert("Välj en text att läsa först!");
+    const currentPassageId =
+      document.getElementById("current-passage-id").value;
+    if (!currentPassageId || currentPassageId === "0") {
+      status.textContent = "Välj en text att läsa först!";
       return;
     }
-
-    console.log("Uploading for passage ID:", passageId);
 
     uploadBtn.disabled = true;
     uploadBtn.textContent = "Laddar upp...";
@@ -183,6 +211,11 @@ function initializeRecorder(container) {
       const uploadData = await uploadResponse.json();
 
       if (!uploadData.success) {
+        if (uploadData.data?.message === "User not logged in") {
+          alert(
+            "Du måste vara inloggad för att kunna ladda upp en inspelning."
+          );
+        }
         throw new Error(
           uploadData.data?.message || "Kunde inte spara ljudfilen."
         );
@@ -270,7 +303,7 @@ function initializeRecorder(container) {
       questionsSection.style.display = "block";
       status.textContent = "Svara på frågorna och skicka in dina svar.";
     } catch (error) {
-      console.error("Error during questions fetch:", error);
+      console.error("Error during upload:", error);
       status.textContent = error.message;
       uploadBtn.disabled = false;
       uploadBtn.textContent = "Ladda upp";
@@ -321,7 +354,9 @@ function initializeRecorder(container) {
     }
   });
 
-  // Keyboard controls if we want them
+  // Keyboard controls
+  // @TODO: Currently they remove the Answers space key when writing!
+  // Start/stop should only be with the space key when the Questions form fields have no focus.
   document.addEventListener("keydown", (event) => {
     if (event.code === "Space") {
       event.preventDefault();
@@ -404,4 +439,23 @@ function initializeRecorder(container) {
       }
     }
   }
+
+  // Handle text passages if we use AJAX
+  /*function handlePassageSelection(passageId) {
+    const controls = document.querySelector(".ra-controls");
+    const startBtn = document.getElementById("start-recording");
+    const status = document.getElementById("status");
+
+    if (passageId && passageId !== "0") {
+      controls.classList.remove("ra-controls-disabled");
+      startBtn.disabled = false;
+      status.textContent = "Klicka på 'Spela in' för att börja.";
+      document.getElementById("current-passage-id").value = passageId;
+    } else {
+      controls.classList.add("ra-controls-disabled");
+      startBtn.disabled = true;
+      status.textContent = "Välj en text innan du börjar spela in.";
+    }
+  }
+    */
 }
