@@ -1,5 +1,5 @@
 <?php
-/**
+/** includes/class-reading-assessment.php
  * The core plugin class.
  *
  * @package    ReadingAssessment
@@ -7,7 +7,8 @@
  */
 
 class Reading_Assessment {
-
+    private static $instance = null;
+    private $admin = null;
     protected $loader;
     protected $plugin_name;
     protected $version;
@@ -39,7 +40,17 @@ class Reading_Assessment {
         $this->loader->add_action('plugins_loaded', $plugin_i18n, 'load_plugin_textdomain');
     }
 
+    public static function get_instance() {
+        if (null === self::$instance) {
+            self::$instance = new self();
+        }
+        return self::$instance;
+    }
+
     private function define_admin_hooks() {
+        if (!$this->admin === null) {
+            return;
+        }
         $plugin_admin = new Reading_Assessment_Admin($this->get_plugin_name(), $this->get_version());
         $this->loader->add_action('admin_enqueue_scripts', $plugin_admin, 'enqueue_styles');
         $this->loader->add_action('admin_enqueue_scripts', $plugin_admin, 'enqueue_scripts');
@@ -47,6 +58,7 @@ class Reading_Assessment {
         $this->loader->add_action('admin_init', $plugin_admin, 'register_settings');
 
         // AJAX handlers for ADMIN - note the 'admin_' prefix
+        // @TODO: simplify into fewer admin nonces if possible!
         $this->loader->add_action('wp_ajax_ra_admin_get_passage', $plugin_admin, 'ajax_get_passage');
         $this->loader->add_action('wp_ajax_ra_admin_get_passages', $plugin_admin, 'ajax_get_passages');
         $this->loader->add_action('wp_ajax_ra_admin_delete_passage', $plugin_admin, 'ajax_delete_passage');
@@ -57,6 +69,7 @@ class Reading_Assessment {
         $this->loader->add_action('wp_ajax_ra_admin_save_assessment', $plugin_admin, 'ajax_save_assessment');
         $this->loader->add_action('wp_ajax_ra_admin_delete_recording', $plugin_admin, 'ajax_delete_recording');
         $this->loader->add_action('wp_ajax_ra_admin_save_interactions', $plugin_admin, 'ajax_save_interactions');
+        $this->loader->add_action('wp_ajax_ra_admin_get_progress_data', $plugin_admin, 'ajax_get_progress_data');
     }
 
     private function define_public_hooks() {
