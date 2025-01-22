@@ -45,7 +45,7 @@ $total_pages = ceil($total_orphaned / $per_page);
 $passages = $ra_db->get_all_passages();
 ?>
 
-<div class="wrap">
+<div class="wrap" data-page="repair-recordings">
     <h1><?php echo esc_html__('Reparera inspelningar', 'reading-assessment'); ?></h1>
 
     <?php if ($total_orphaned > 0): ?>
