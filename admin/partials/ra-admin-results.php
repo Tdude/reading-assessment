@@ -23,7 +23,7 @@ $passage_stats = $stats->get_passage_statistics($date_limit);
 $question_stats = $stats->get_question_statistics($date_limit, $passage_id);
 ?>
 
-<div class="wrap">
+<div class="wrap" data-page="results">
     <h1><?php echo esc_html(get_admin_page_title()); ?></h1>
 
     <!-- Filters -->
