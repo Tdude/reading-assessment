@@ -1,158 +1,117 @@
 <?php
+/**
+ * admin/partials/ra-admin-assignments.php
+ * Handles assignments management in the admin panel
+ * Assignments are for a logged in user to be assigned a text passage. It should also be able to be removed.
+ */
+
 if (!defined('WPINC')) {
     die;
 }
 
-$ra_db = new Reading_Assessment_Database();
+class Reading_Assessment_Assignments_Admin {
+    private $db;
+    public $messages = array();
+    private $plugin_name;
+    private $version;
 
-// Handle form submission
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ra_assignment_nonce'])) {
-    if (!wp_verify_nonce($_POST['ra_assignment_nonce'], 'ra_assignment_action')) {
-        wp_die(__('Security check failed', 'reading-assessment'));
+    public function __construct($db, $plugin_name, $version) {
+        $this->db = $db;
+        $this->plugin_name = $plugin_name;
+        $this->version = $version;
+        $this->init_hooks();
     }
 
-    $user_id = intval($_POST['user_id']);
-    $passage_id = intval($_POST['passage_id']);
-    $due_date = !empty($_POST['due_date']) ? sanitize_text_field($_POST['due_date']) : null;
+    private function init_hooks() {
+        add_action('wp_ajax_ra_admin_delete_assignment', array($this, 'ajax_delete_assignment'));
+        add_action('wp_ajax_ra_admin_create_assignment', array($this, 'ajax_create_assignment'));
+    }
 
-    $result = $ra_db->assign_passage_to_user($passage_id, $user_id, get_current_user_id(), $due_date);
+    public function render_page() {
+        //error_log('Assignments render_page called');
 
-    if ($result) {
-        $success_message = __('Texten blev tilldelad eleven.', 'reading-assessment');
-    } else {
-        $error_message = __('Kunde inte tilldela text.', 'reading-assessment');
+        // Security check
+        if (!current_user_can('manage_options')) {
+            wp_die(__('You do not have sufficient permissions to access this page.'));
+        }
+
+        $this->handle_form_submission();
+
+        // Get data needed for the view
+        $users = get_users(['role__not_in' => ['administrator']]);
+        $passages = $this->db->get_all_passages();
+        $assignments = $this->db->get_all_assignments();
+
+        //error_log('Template path: ' . plugin_dir_path(__FILE__) . 'views/assignments-admin-page.php');
+
+        // Include the view template
+        require plugin_dir_path(__FILE__) . 'views/assignments-admin-page.php';
+    }
+
+    private function handle_form_submission() {
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            return;
+        }
+
+        if (!isset($_POST['_wpnonce']) || !wp_verify_nonce($_POST['_wpnonce'], 'ra_admin_action')) {
+            wp_die(__('Security check failed', 'reading-assessment'));
+        }
+
+        $user_id = intval($_POST['user_id']);
+        $passage_id = intval($_POST['passage_id']);
+        $due_date = !empty($_POST['due_date']) ? sanitize_text_field($_POST['due_date']) : null;
+
+        // Verify user and passage exist
+        $user = get_user_by('id', $user_id);
+        $passage = $this->db->get_passage($passage_id);
+
+        if (!$user || !$passage) {
+            $this->messages['error'] = __('Ogiltig användare eller text.', 'reading-assessment');
+        } else {
+            $result = $this->db->assign_passage_to_user($passage_id, $user_id, get_current_user_id(), $due_date);
+
+            if ($result) {
+                $this->messages['success'] = __('Texten blev tilldelad eleven.', 'reading-assessment');
+            } else {
+                $this->messages['error'] = __('Kunde inte tilldela text.', 'reading-assessment');
+            }
+        }
+    }
+
+    public function ajax_create_assignment() {
+        check_ajax_referer('ra_admin_action', 'nonce');
+
+        $user_id = intval($_POST['user_id']);
+        $passage_id = intval($_POST['passage_id']);
+        $due_date = !empty($_POST['due_date']) ? sanitize_text_field($_POST['due_date']) : null;
+
+        // Verify user and passage exist
+        $user = get_user_by('id', $user_id);
+        $passage = $this->db->get_passage($passage_id);
+
+        if (!$user || !$passage) {
+            wp_send_json_error(array('message' => __('Ogiltig användare eller text.', 'reading-assessment')));
+        }
+
+        $result = $this->db->assign_passage_to_user($passage_id, $user_id, get_current_user_id(), $due_date);
+
+        if ($result) {
+            wp_send_json_success(array('message' => __('Texten blev tilldelad eleven.', 'reading-assessment')));
+        } else {
+            wp_send_json_error(array('message' => __('Kunde inte tilldela text.', 'reading-assessment')));
+        }
+    }
+
+    public function ajax_delete_assignment() {
+        check_ajax_referer('ra_admin_action', 'nonce');
+
+        $assignment_id = isset($_POST['assignment_id']) ? intval($_POST['assignment_id']) : 0;
+        $result = $this->db->delete_assignment($assignment_id);
+
+        if (is_wp_error($result)) {
+            wp_send_json_error(array('message' => $result->get_error_message()));
+        }
+
+        wp_send_json_success(array('message' => __('Tilldelningen har tagits bort.', 'reading-assessment')));
     }
 }
-
-// Get all users and passages for the form
-$users = get_users(['role__not_in' => ['administrator']]);
-$passages = $ra_db->get_all_passages();
-?>
-
-<div class="wrap">
-    <h1><?php echo esc_html(get_admin_page_title()); ?></h1>
-
-    <?php if (isset($error_message)): ?>
-    <div class="notice notice-error">
-        <p><?php echo esc_html($error_message); ?></p>
-    </div>
-    <?php endif; ?>
-
-    <?php if (isset($success_message)): ?>
-    <div class="notice notice-success">
-        <p><?php echo esc_html($success_message); ?></p>
-    </div>
-    <?php endif; ?>
-
-    <!-- Assignment Form -->
-    <div class="ra-assignment-form-container">
-        <h2><?php _e('Tilldela text', 'reading-assessment'); ?></h2>
-        <form method="post">
-            <?php wp_nonce_field('ra_assignment_action', 'ra_assignment_nonce'); ?>
-
-            <table class="form-table">
-                <tr>
-                    <th scope="row">
-                        <label for="user_id"><?php _e('Användare', 'reading-assessment'); ?></label>
-                    </th>
-                    <td>
-                        <select name="user_id" id="user_id" required>
-                            <option value=""><?php _e('Välj användare', 'reading-assessment'); ?></option>
-                            <?php foreach ($users as $user): ?>
-                            <option value="<?php echo esc_attr($user->ID); ?>">
-                                <?php echo esc_html($user->display_name); ?>
-                            </option>
-                            <?php endforeach; ?>
-                        </select>
-                    </td>
-                </tr>
-                <tr>
-                    <th scope="row">
-                        <label for="passage_id"><?php _e('Text', 'reading-assessment'); ?></label>
-                    </th>
-                    <td>
-                        <select name="passage_id" id="passage_id" required>
-                            <option value=""><?php _e('Välj text', 'reading-assessment'); ?></option>
-                            <?php foreach ($passages as $passage): ?>
-                            <option value="<?php echo esc_attr($passage->id); ?>">
-                                <?php echo esc_html($passage->title); ?>
-                            </option>
-                            <?php endforeach; ?>
-                        </select>
-                    </td>
-                </tr>
-                <tr>
-                    <th scope="row">
-                        <label for="due_date"><?php _e('Slutdatum (valfritt)', 'reading-assessment'); ?></label>
-                    </th>
-                    <td>
-                        <input type="date" id="due_date" name="due_date">
-                    </td>
-                </tr>
-            </table>
-
-            <p class="submit">
-                <input type="submit" name="submit" id="submit" class="button button-primary"
-                    value="<?php _e('Tilldela text', 'reading-assessment'); ?>">
-            </p>
-        </form>
-    </div>
-
-    <!-- List of current assignments -->
-    <div class="ra-assignments-list">
-        <h2><?php _e('Aktuella tilldelningar', 'reading-assessment'); ?></h2>
-        <?php
-        // Get all assignments with user and passage details
-        $assignments = $ra_db->get_all_assignments(); // We'll create this method
-        ?>
-
-        <?php if ($assignments): ?>
-        <table class="wp-list-table widefat fixed striped">
-            <thead>
-                <tr>
-                    <th><?php _e('Användare', 'reading-assessment'); ?></th>
-                    <th><?php _e('Text', 'reading-assessment'); ?></th>
-                    <th><?php _e('Tilldelad', 'reading-assessment'); ?></th>
-                    <th><?php _e('Slutdatum', 'reading-assessment'); ?></th>
-                    <th><?php _e('Status', 'reading-assessment'); ?></th>
-                    <th><?php _e('Aktivitet', 'reading-assessment'); ?></th>
-                </tr>
-            </thead>
-            <tbody>
-                <?php foreach ($assignments as $assignment): ?>
-                <tr>
-                    <td><?php echo esc_html($assignment->user_name); ?></td>
-                    <td><?php echo esc_html($assignment->passage_title); ?></td>
-                    <td><?php echo esc_html(date_i18n(get_option('date_format'), strtotime($assignment->assigned_at))); ?>
-                    </td>
-                    <td>
-                        <?php
-                                echo $assignment->due_date
-                                    ? esc_html(date_i18n(get_option('date_format'), strtotime($assignment->due_date)))
-                                    : __('Inget slutdatum', 'reading-assessment');
-                                ?>
-                    </td>
-                    <td>
-                        <?php
-                                $status_labels = [
-                                    'pending' => __('Väntar', 'reading-assessment'),
-                                    'completed' => __('Slutförd', 'reading-assessment'),
-                                    'overdue' => __('Försenad', 'reading-assessment')
-                                ];
-                                echo esc_html($status_labels[$assignment->status] ?? $assignment->status);
-                                ?>
-                    </td>
-                    <td>
-                        <button class="button ra-delete-assignment" data-id="<?php echo esc_attr($assignment->id); ?>">
-                            <?php _e('Ta bort', 'reading-assessment'); ?>
-                        </button>
-                    </td>
-                </tr>
-                <?php endforeach; ?>
-            </tbody>
-        </table>
-        <?php else: ?>
-        <p><?php _e('Inga aktiva tilldelningar hittades.', 'reading-assessment'); ?></p>
-        <?php endif; ?>
-    </div>
-</div>
