@@ -131,16 +131,21 @@ setTimeout(function() {
 
     public function shortcode_audio_recorder() {
         ob_start();
+        // Get current passage ID
+        $current_passage_id = isset($_GET['passage_id']) ? intval($_GET['passage_id']) : 0;
+        $has_valid_passage = $current_passage_id > 0;
         ?>
 <div id="audio-recorder" class="ra-audio-recorder">
-    <?php
-            // Get current passage ID
-            $current_passage_id = isset($_GET['passage_id']) ? intval($_GET['passage_id']) : 0;
-            ?>
     <input type="hidden" id="current-passage-id" value="<?php echo esc_attr($current_passage_id); ?>">
 
-    <div class="ra-controls">
-        <button id="start-recording" class="ra-button record">
+    <?php if (!$has_valid_passage): ?>
+    <div class="ra-warning">
+        Välj en text innan du börjar spela in.
+    </div>
+    <?php endif; ?>
+
+    <div class="ra-controls <?php echo !$has_valid_passage ? 'ra-controls-disabled' : ''; ?>">
+        <button id="start-recording" class="ra-button record" <?php echo !$has_valid_passage ? 'disabled' : ''; ?>>
             <span class="ra-icon">⚫</span>
             <span class="ra-label">Spela in</span>
         </button>
@@ -167,8 +172,10 @@ setTimeout(function() {
     </div>
 
 
-    <div id="waveform" class="ra-waveform" style="display: block; min-height: 128px; width: 100%;"></div>
-    <p id="status" class="ra-status"></p>
+    <div id="waveform" class="ra-waveform"></div>
+    <p id="status" class="ra-status">
+        <?php echo $has_valid_passage ? 'Klicka på \'Spela in\' för att börja.' : 'Välj en text innan du börjar spela in.'; ?>
+    </p>
 
     <!-- Add questions section -->
     <div id="questions-section" class="ra-questions" style="display: none;">
@@ -257,12 +264,12 @@ setTimeout(function() {
        // error_log('FILES data: ' . print_r($_FILES, true));
 
         if (!is_user_logged_in()) {
-            wp_send_json_error(['message' => 'User not logged in']);
+            wp_send_json_error(['message' => 'Användaren är inte inloggad. Har du fått ett login?']);
             return;
         }
 
         if (!isset($_FILES['audio_file'])) {
-            wp_send_json_error(['message' => 'No audio file received']);
+            wp_send_json_error(['message' => 'Kunde inte ta emot ljudfil.']);
             return;
         }
 
@@ -311,7 +318,7 @@ setTimeout(function() {
             if ($result === false) {
                 error_log('Database insert failed: ' . $wpdb->last_error);
                 wp_send_json_error([
-                    'message' => 'Failed to save recording data to database',
+                    'message' => 'Kunde inte spara den inspelade filen. Prova igen eller kontakta administratören!',
                     'error' => $wpdb->last_error
                 ]);
                 return;
@@ -340,15 +347,15 @@ setTimeout(function() {
         // First verify nonce
         if (!check_ajax_referer('ra_public_nonce', 'nonce', false)) {
             // error_log('Nonce verification failed');
-            wp_send_json_error(['message' => 'Security check failed']);
+            wp_send_json_error(['message' => 'Säkerhetskontrollen ogiltig tyvärr.']);
             return;
         }
 
         // Get and validate passage_id
         $passage_id = isset($_POST['passage_id']) ? absint($_POST['passage_id']) : 0;
 
-        if (!$passage_id) {
-            wp_send_json_error(['message' => 'Invalid passage ID']);
+        if (!$passage_id || $passage_id === 0) {
+            wp_send_json_error(['message' => 'Ogiltigt text ID. Du behöver få en text av en adinistratör att läsa upp.']);
             return;
         }
 
@@ -358,13 +365,13 @@ setTimeout(function() {
         // error_log('Raw questions from database: ' . print_r($questions, true));
 
         if (empty($questions)) {
-            wp_send_json_error(['message' => 'No questions found for this passage']);
+            wp_send_json_error(['message' => 'Inga frågor kunde hittas om denna text.']);
             return;
         }
 
         // Send the questions directly
         wp_send_json_success($questions);
-        error_log('===== END ajax_get_questions =====');
+        // error_log('===== END ajax_get_questions =====');
     }
 
 
@@ -375,7 +382,7 @@ setTimeout(function() {
             // Verify nonce
             if (!check_ajax_referer('ra_public_nonce', 'nonce', false)) {
                 // error_log('Nonce verification failed');
-                wp_send_json_error(['message' => 'Security check failed']);
+                wp_send_json_error(['message' => 'Säkerhetskontrollen ogiltig tyvärr.']);
                 return;
             }
 
@@ -383,7 +390,7 @@ setTimeout(function() {
             $recording_id = isset($_POST['recording_id']) ? absint($_POST['recording_id']) : 0;
 
             if (!$recording_id) {
-                wp_send_json_error(['message' => 'Invalid recording ID']);
+                wp_send_json_error(['message' => 'Ogiltigt inspelnings ID. Det betyder att det uppstod ett fel vid uppladdningen. Prova igen.']);
                 return;
             }
 
@@ -392,7 +399,7 @@ setTimeout(function() {
             $answers = json_decode($answers_json, true);
 
             if (!is_array($answers) || empty($answers)) {
-                wp_send_json_error(['message' => 'Invalid answers format']);
+                wp_send_json_error(['message' => 'Ogiltigt svarsformat.']);
                 return;
             }
 
@@ -402,13 +409,13 @@ setTimeout(function() {
             $current_user_id = get_current_user_id();
 
             if (!$recording) {
-                wp_send_json_error(['message' => 'Recording not found']);
+                wp_send_json_error(['message' => 'Inspelningen kunde inte hittas.']);
                 return;
             }
 
             if ($recording->user_id != $current_user_id) {
                 // error_log('Recording user ID mismatch. Recording user: ' . $recording->user_id . ', Current user: ' . $current_user_id);
-                wp_send_json_error(['message' => 'Permission denied']);
+                wp_send_json_error(['message' => 'Denna användare nekas tyvärr. Logga ut och in igen!']);
                 return;
             }
 
@@ -427,7 +434,7 @@ setTimeout(function() {
                     if ($result) {
                         $saved_count++;
                     } else {
-                        $errors[] = "Failed to save answer for question $question_id";
+                        $errors[] = "Kunde inte spara svaret till frågan: $question_id";
                     }
                 } catch (Exception $e) {
                     // error_log("Error saving answer for question $question_id: " . $e->getMessage());
@@ -464,7 +471,7 @@ setTimeout(function() {
 
         } catch (Exception $e) {
             // error_log('Error in ajax_submit_answers: ' . $e->getMessage());
-            wp_send_json_error(['message' => 'Server error occurred']);
+            wp_send_json_error(['message' => 'Det uppstod ett serverfel.']);
         }
     }
 }
