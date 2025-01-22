@@ -15,8 +15,7 @@
 }
 
 .ra-widget h2 {
-  margin-top: 0;
-  padding-bottom: 10px;
+  padding: 1em;
   border-bottom: 1px solid #eee;
 }
 
@@ -51,13 +50,20 @@
   align-items: center;
 }
 
+.table.widefat {
+  border: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+}
+
 .widefat td.column-actions {
   text-align: right;
 }
 
-.ra-loading {
-  text-align: center;
-  padding: 20px;
+.widefat td {
+  vertical-align: middle;
 }
 
 .ra-stats-overview {
@@ -278,46 +284,19 @@
   margin-bottom: 5px;
 }
 
-/* Button alignment and base styles */
+/* Button alignment and base styles. Neutralize wp core */
+.wp-core-ui .button-group {
+  display: block;
+}
 .button-container {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 10px;
+  display: block;
+  gap: 1rem;
 }
 
 .wp-core-ui .button.add-assessment,
 .wp-core-ui .button.delete-recording {
   margin-left: 10px;
   min-width: 80px;
-}
-
-/* Delete button specific styles */
-.wp-core-ui .button.delete-recording {
-  color: #fff;
-  border-color: #dc3545;
-  background: #dc3545;
-}
-
-.wp-core-ui .button.delete-recording:hover,
-.wp-core-ui .button.delete-recording:focus {
-  color: #fff;
-  border-color: #bd2130;
-  background: #c82333;
-}
-
-/* LUSa button specific styles */
-.wp-core-ui .button.add-assessment {
-  color: #fff;
-  border-color: #2271b1;
-  background: #2271b1;
-}
-
-.wp-core-ui .button.add-assessment:hover,
-.wp-core-ui .button.add-assessment:focus {
-  color: #fff;
-  border-color: #135e96;
-  background: #135e96;
 }
 
 .recording-count-link {
@@ -335,4 +314,91 @@
 .no-recordings {
   color: #999;
   font-style: italic;
+}
+
+.ra-loading {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: rgba(255, 255, 255, 0.9);
+  padding: 20px;
+  border-radius: 5px;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+  z-index: 1000;
+  text-align: center;
+}
+
+.ra-loading-spinner {
+  border: 4px solid #f3f3f3;
+  border-top: 4px solid #3498db;
+  border-radius: 50%;
+  width: 30px;
+  height: 30px;
+  animation: spin 1s linear infinite;
+  margin: 0 auto 10px;
+}
+
+@keyframes spin {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+/* Pie charts */
+.grade-info {
+  margin-left: 8px;
+  padding: 2px 6px;
+  background: #f0f0f0;
+  border-radius: 3px;
+  font-size: 0.9em;
+}
+
+/* Optional: Add hover effects */
+.ra-stats-list li:hover {
+  background-color: #f8f8f8;
+}
+
+.ra-stats-list li {
+  padding: 4px 8px;
+  border-radius: 4px;
+  transition: background-color 0.2s;
+}
+
+/* the chart.js canvas */
+.progress-chart-container {
+  background: hsla(0, 0, 100%, 0.3);
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  max-height: 400px;
+  min-height: 300px;
+  width: 100%;
+  position: relative;
+  margin: 2rem 0;
+}
+
+.progress-chart-container canvas {
+  width: 100% !important;
+  height: 100% !important;
+}
+
+.alignleft.actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 0;
+}
+
+#update-progress {
+  height: 30px;
+  line-height: 28px;
+  padding: 0 12px;
+}
+
+.postform {
+  min-width: 120px;
 }
