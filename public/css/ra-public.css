@@ -99,17 +99,31 @@ wave {
   margin-bottom: 20px;
 }
 
+.ra-controls-disabled {
+  position: relative;
+  opacity: 0.7;
+  pointer-events: none;
+}
+
+.ra-warning {
+  background-color: #fff3cd;
+  border: 1px solid #ffeeba;
+  color: #856404;
+  padding: 0.75rem 1.25rem;
+  margin-bottom: 1rem;
+  border-radius: 0.25rem;
+  text-align: center;
+}
+
 .ra-button {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 15px 30px;
+  gap: 1em;
+  padding: 1.5em;
   border: none;
-  border-radius: 25px;
-  background: #fff;
-  color: #333;
+  border-radius: 2em;
   cursor: pointer;
-  font-size: 14px;
+  font-size: 1em;
   transition: all 0.2s ease;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
@@ -121,9 +135,14 @@ wave {
 }
 
 .ra-button:disabled {
-  opacity: 0.5;
+  opacity: 0.6;
   cursor: not-allowed;
-  background: #e0e0e0;
+}
+
+/* Optional hover effect for disabled buttons */
+.ra-button:disabled:hover {
+  background-color: inherit;
+  color: inherit;
 }
 
 .ra-button.record {
@@ -173,39 +192,32 @@ wave {
 }
 
 .ra-waveform {
-  background: white;
-  border-radius: 4px;
-  padding: 10px;
-  margin: 10px 0;
+  background: rgba(255, 255, 255, 0.7);
+  border-radius: 0.5rem;
+  padding: 1rem;
+  margin: 1rem 0;
   box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.1);
-  min-height: 100px;
+  min-height: 10rem;
 }
 
 .ra-status {
-  margin: 10px 0 0 0;
-  padding: 8px;
-  border-radius: 4px;
+  margin: 1em 0 0 0;
+  padding: 0.8em;
+  border-radius: 0.5em;
   background: rgba(255, 255, 255, 0.8);
-  font-size: 14px;
-  color: #666;
+  font-size: 1em;
+  color: #000;
 }
 
 /* Collapsible components */
-.ra-collapsible-content {
-  font-size: 1.4rem;
-}
-.ra-collapsible-title {
-  font-size: 1.8rem;
-}
-
 .ra-collapsible {
-  margin-bottom: 1em;
+  border-collapse: collapse;
+  border: 1px solid rgba(200, 200, 200, 0.2);
 }
-
 .ra-collapsible-title {
-  padding: 10px 15px;
-  background-color: #f5f5f5;
-  border: 1px solid #ddd;
+  font-size: 1.5em;
+  padding: 1em;
+  background-color: rgba(200, 200, 200, 0.1);
   margin: 0;
   cursor: pointer;
   position: relative;
@@ -214,12 +226,9 @@ wave {
   align-items: center;
 }
 
-.ra-collapsible-title:hover {
-  background-color: #ebebeb;
-}
-
 .ra-collapsible-icon {
-  transition: transform 0.3s ease;
+  transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  display: inline-block;
 }
 
 .ra-collapsible-title.active .ra-collapsible-icon {
@@ -227,14 +236,35 @@ wave {
 }
 
 .ra-collapsible-content {
-  display: none;
-  padding: 15px;
-  border: 1px solid #ddd;
+  font-size: 1.3em;
+  max-height: 0;
+  opacity: 0;
+  overflow: hidden;
+  padding: 0 1em;
   border-top: none;
+  /* Faster closing animation */
+  transition: max-height 0.25s cubic-bezier(0.4, 0, 0.2, 1),
+    opacity 0.25s cubic-bezier(0.4, 0, 0.2, 1),
+    padding 0.25s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .ra-collapsible-content.show {
-  display: block;
+  max-height: 800px; /* Reduced from 2000px - adjust based on your content */
+  opacity: 1;
+  padding: 15px;
+  /* Slightly slower opening animation */
+  transition: max-height 0.35s cubic-bezier(0.4, 0, 0.2, 1),
+    opacity 0.35s cubic-bezier(0.4, 0, 0.2, 1),
+    padding 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.ra-collapsible-title {
+  cursor: pointer;
+  transition: background-color 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.ra-collapsible-title:hover {
+  background-color: rgba(0, 0, 0, 0.03);
 }
 
 /* Tune down bg for message */
@@ -277,7 +307,6 @@ wave {
 .ra-questions {
   margin-top: 2rem;
   padding: 1rem;
-  background: #f5f5f5;
   border-radius: 8px;
 }
 
