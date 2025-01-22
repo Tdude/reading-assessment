@@ -3,6 +3,7 @@
 This is a show-text, voice recording, save scores plugin for Wordpress
 
 I uploaded all the files to Claude AI. The text below is from there. It hurts to be human but I suppose I just have to get on with it...
+The question is, did I follow Clude's suggestions? Hey, I'm still hooman so Hell No! Good suggestions though :)
 
 ## Claude AI:
 
