@@ -1,5 +1,5 @@
 <?php
-// ra-admin-passages.php
+// admin/partials/ra-admin-passages.php
 if (!defined('WPINC')) {
     die;
 }
@@ -67,8 +67,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ra_passage_nonce'])) 
 }
 ?>
 
-<div class="wrap">
+<div class="wrap" data-page="passages">
     <h1><?php echo esc_html(get_admin_page_title()); ?></h1>
+
+    <button type="button" class="page-title-action" data-action="new-passage">
+        <?php _e('Lägg till ny text', 'reading-assessment'); ?>
+    </button>
+
 
     <?php if (isset($error_message)): ?>
     <div class="notice notice-error">
@@ -84,7 +89,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ra_passage_nonce'])) 
 
     <!-- List of existing passages -->
     <div class="ra-passages-list">
-        <h2><?php _e('Sparade texter', 'reading-assessment'); ?></h2>
+        <h2><?php _e('Textpassager och lite data', 'reading-assessment'); ?></h2>
         <?php
         $passages = $ra_db->get_all_passages(); // We need to add this method to the database class
 
@@ -105,7 +110,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ra_passage_nonce'])) 
                     <th><?php _e('Titel', 'reading-assessment'); ?></th>
                     <th><?php _e('Antal inspelningar', 'reading-assessment'); ?></th>
                     <th><?php _e('Tidsgräns', 'reading-assessment'); ?></th>
-                    <th><?php _e('Svårighetsgrad', 'reading-assessment'); ?></th>
+                    <th><?php _e('Grad', 'reading-assessment'); ?></th>
                     <th><?php _e('Inläsningar', 'reading-assessment'); ?></th>
                     <th><?php _e('Skapad', 'reading-assessment'); ?></th>
                     <th><?php _e('Aktivitet', 'reading-assessment'); ?></th>
@@ -113,6 +118,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ra_passage_nonce'])) 
             </thead>
             <tbody>
                 <?php foreach ($passages as $passage):
+                // DEBUGGGG
+                error_log('Rendering passage ID: ' . $passage->id);
+
                         $stats = $ra_db->get_passage_statistics($passage->id);
                         // Get recording count directly with a simple query
                         $recording_count = $ra_db->get_passage_recording_count($passage->id);
@@ -120,7 +128,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ra_passage_nonce'])) 
                 <tr>
                     <td>
                         <strong>
-                            <a href="#" class="ra-edit-passage" data-id="<?php echo esc_attr($passage->id); ?>">
+                            <a href="#" class="ra-edit-passage" data-action="edit"
+                                data-id="<?php echo esc_attr($passage->id); ?>">
                                 <?php echo esc_html($passage->title); ?>
                             </a>
                         </strong>
@@ -158,7 +167,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ra_passage_nonce'])) 
                         <?php if ($stats && $stats->total_attempts > 0): ?>
                         <?php
                                     printf(
-                                        __('Antal försök: %1$d<br>Medelresultat: %2$.1f £', 'reading-assessment'),
+                                        __('Antal försök: %1$d<br>Medelresultat: %2$.1f ', 'reading-assessment'),
                                         $stats->total_attempts,
                                         $stats->average_score
                                     );
@@ -170,16 +179,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ra_passage_nonce'])) 
                     <td><?php echo esc_html(date_i18n(get_option('date_format'), strtotime($passage->created_at))); ?>
                     </td>
                     <td>
-                        <button class="button ra-edit-passage" data-id="<?php echo esc_attr($passage->id); ?>"
-                            data-title="<?php echo esc_attr($passage->title); ?>"
-                            data-content="<?php echo esc_attr($passage->content); ?>"
-                            data-time-limit="<?php echo esc_attr($passage->time_limit); ?>"
-                            data-difficulty-level="<?php echo esc_attr($passage->difficulty_level); ?>">
-                            <?php _e('Ändra', 'reading-assessment'); ?>
-                        </button>
-                        <button class="button ra-delete-passage" data-id="<?php echo esc_attr($passage->id); ?>">
-                            <?php _e('Radera', 'reading-assessment'); ?>
-                        </button>
+                        <div class="button-group">
+                            <button type="button" class="button button-primary" style="width: 4rem;" data-action="edit"
+                                data-id="<?php echo esc_attr($passage->id); ?>">
+                                <?php _e('Ändra', 'reading-assessment'); ?>
+                            </button>
+                            <button type="button" class="button button-link-delete" style="width: 4rem;"
+                                data-action="delete" data-module="passages"
+                                data-id="<?php echo esc_attr($passage->id); ?>">
+                                <?php _e('Radera', 'reading-assessment'); ?>
+                            </button>
+                        </div>
                     </td>
                 </tr>
                 <?php endforeach; ?>
