@@ -6,13 +6,14 @@
  * @subpackage ReadingAssessment/admin
  */
 
-// Load the questions admin class
-
 
 require_once plugin_dir_path(__FILE__) . 'partials/ra-admin-dashboard.php';
 require_once plugin_dir_path(__FILE__) . 'partials/ra-admin-assignments.php';
 require_once plugin_dir_path(__FILE__) . 'partials/ra-admin-questions.php';
+require_once plugin_dir_path(__FILE__) . 'partials/ra-admin-results.php';
 require_once plugin_dir_path(__DIR__) . 'includes/class-ra-utilities.php';
+
+
 
 class Reading_Assessment_Admin {
     private static $initialized = false;
@@ -23,6 +24,7 @@ class Reading_Assessment_Admin {
     private Reading_Assessment_Dashboard_Admin $dashboard_admin;
     private Reading_Assessment_Questions_Admin $questions_admin;
     private Reading_Assessment_Assignments_Admin $assignments_admin;
+    private Reading_Assessment_Results_Admin $results_admin;
 
     public function __construct($plugin_name, $version) {
 
@@ -53,6 +55,12 @@ class Reading_Assessment_Admin {
         );
 
         $this->questions_admin = new Reading_Assessment_Questions_Admin(
+            $this->db,
+            $plugin_name,
+            $version
+        );
+
+        $this->results_admin = new Reading_Assessment_Results_Admin(
             $this->db,
             $plugin_name,
             $version
@@ -548,24 +556,47 @@ class Reading_Assessment_Admin {
     }
 
     public function register_settings() {
-        register_setting('reading-assessment', 'ra_enable_tracking', array(
+        // Tracking Settings
+        register_setting('reading-assessment', 'ra_enable_tracking', [
             'type' => 'boolean',
             'default' => true
-        ));
+        ]);
 
+        register_setting('reading-assessment', 'ra_openai_api_key', [
+            'type' => 'string',
+            'sanitize_callback' => 'sanitize_text_field'
+        ]);
+
+        // Tracking Section
         add_settings_section(
             'ra_tracking_settings',
             __('Aktivitetsspårning', 'reading-assessment'),
-            array($this, 'render_tracking_section'),
+            [$this, 'render_tracking_section'],
             'reading-assessment'
         );
 
         add_settings_field(
             'ra_enable_tracking',
             __('Aktivera aktivitetsspårning', 'reading-assessment'),
-            array($this, 'render_tracking_field'),
+            [$this, 'render_tracking_field'],
             'reading-assessment',
             'ra_tracking_settings'
+        );
+
+        // AI Section
+        add_settings_section(
+            'ra_ai_settings',
+            __('AI Inställningar', 'reading-assessment'),
+            [$this, 'render_ai_section'],
+            'reading-assessment'
+        );
+
+        add_settings_field(
+            'ra_openai_api_key',
+            __('OpenAI API Nyckel xyz...', 'reading-assessment'),
+            [$this, 'render_api_key_field'],
+            'reading-assessment',
+            'ra_ai_settings'
         );
     }
 

@@ -26,20 +26,20 @@ $upload_dir = wp_upload_dir();
         <div class="two-cols">
             <div>
                 <h2><?php _e('Vad detta är och hur det kan hjälpa dig', 'reading-assessment'); ?></h2>
-                <p><?php _e('Om du klickar på knappen Visa/dölj ska sidan komma ihåg hur du vill ha det. Tibbes bidrag till UX-världen.', 'reading-assessment'); ?>
+                <p><?php _e('Om du klickar på knappen Visa/dölj ska sidan komma ihåg hur du vill ha det.', 'reading-assessment'); ?>
                 </p>
-                <p><?php _e('Detta Wordpress-plugin är gjort för att spela in ljudfiler med. Sedan ska vi använda ljudfilerna för att träna en AI-modell med LUS-grader, eller vad det heter. Adminfunktionerna här är inte cementerade och dessutom gjorda ganska hastigt.', 'reading-assessment'); ?>
+                <p><?php _e('Detta Wordpress-plugin är gjort för att spela in ljudfiler med. Sedan ska vi använda ljudfilerna för att träna en AI-modell med LUS-grader (bättre namn?). Adminfunktionerna här är inte cementerade utan freestyleprogrammerade utifrån lösa antaganden.', 'reading-assessment'); ?>
                 </p>
                 <p><?php _e('Klicka gärna runt här. Har du sönder något är det utvecklarens fel och inte ditt! Om du saknar funktionalitet eller tycker det är för rörigt, meddela gärna så fixar vi det.', 'reading-assessment'); ?>
                 </p>
-                <p><?php _e('Vi kommer inom kort att träna ett AI för att LUSa automatiskt.', 'reading-assessment'); ?>
+                <p><?php _e('Vi kommer inom kort att träna ett AI för att LUSa automatiskt. Först behöver vi dock ljudfiler med barn som spelar in texter.', 'reading-assessment'); ?>
                 </p>
             </div>
             <div>
                 <h2><?php _e('Hur man gör och sånt', 'reading-assessment'); ?></h2>
-                <p><?php _e('Administratören, dvs. du, skapar texter att läsa in för elever i olika grader. Det behövs flera texter i varje poängsegment. Hur många, det är beroende av vad proffsen säger. När vi har tillräckligt med texter, kan vi bjuda in elever och andra att läsa texterna.', 'reading-assessment'); ?>
+                <p><?php _e('Administratören, dvs. du, skapar texter att läsa in för elever i olika grader. Det behövs flera texter i varje poängsegment. Hur många, det är beroende av vad proffsen säger. När vi har tillräckligt med texter, kan vi bjuda in elever och andra att läsa texterna. Gradera dem gärna för vår egen skull så vi inte tilldelar fel svårighetsgrad. Texter kan ju ha samma titel.', 'reading-assessment'); ?>
                 </p>
-                <p><?php _e('Användare/eleven behöver få ett login som du som admin skapar åt dem. Sedan loggar de in på sidan \"Inspelningsmodul\". Där läser de och spelar in texterna i vilken ordning som helst men se till att ni följer någon slags LUS-standard utan distraktioner. När en elev spelat in en text, kan du som admin gå in och LUSa den.', 'reading-assessment'); ?>
+                <p><?php _e('Användaren/eleven behöver få ett login som du som admin skapar åt dem. Sedan loggar de in på sidan \"Inspelningsmodul\". Där läser de och spelar in texterna i vilken ordning som helst men se till att ni följer någon slags LUS-standard utan distraktioner. När en elev spelat in en text, kan du som admin gå in och LUSa den.', 'reading-assessment'); ?>
                 </p>
                 <pre>Kortkodde som man säger på Skånska: [reading_assessment]</pre>
             </div>
@@ -182,7 +182,7 @@ $upload_dir = wp_upload_dir();
 
         <!-- Statistics Widget -->
         <div class="ra-widget">
-            <h2><?php _e('Statistik översikt', 'reading-assessment'); ?></h2>
+            <h2><?php _e('Allmänt', 'reading-assessment'); ?></h2>
             <div class="ra-widget-content">
                 <div class="stats-container">
                     <svg viewBox="0 0 120 120" class="stats-pie">
@@ -367,7 +367,7 @@ $upload_dir = wp_upload_dir();
             </div>
 
             <!-- User Performance -->
-            <h2><?php _e('Genomsnittlig bedömning per användare', 'reading-assessment'); ?></h2>
+            <h2><?php _e('Bedömning per användare', 'reading-assessment'); ?></h2>
             <div class="ra-widget-content">
                 <table class="wp-list-table widefat fixed striped">
                     <thead>
@@ -494,16 +494,31 @@ $upload_dir = wp_upload_dir();
 
     </div>
 
+
     <!-- Assessment Modal -->
     <div id="assessment-modal" class="ra-modal" style="display: none;">
         <div class="ra-modal-content">
             <span class="ra-modal-close">&times;</span>
             <h3><?php _e('Lägg till bedömning', 'reading-assessment'); ?></h3>
+
+            <!-- AI Evaluation Results -->
+            <div id="ai-evaluation-results" class="ai-evaluation-section">
+                <div class="ai-loading" style="display: none;">
+                    <?php _e('AI analyserar inspelningen...', 'reading-assessment'); ?>
+                </div>
+                <div class="ai-results" style="display: none;">
+                    <div class="ai-score"></div>
+                    <div class="ai-confidence"></div>
+                    <div class="ai-details"></div>
+                </div>
+            </div>
+
             <form id="assessment-form">
                 <?php wp_nonce_field('ra_admin_action'); ?>
                 <input type="hidden" name="recording_id" id="assessment-recording-id">
+                <input type="hidden" name="ai_score" id="ai-score-input">
                 <div class="form-field">
-                    <label for="assessment-score"><?php _e('Poäng (1-20)', 'reading-assessment'); ?></label>
+                    <label for="assessment-score"><?php _e('Din bedömning (1-20)', 'reading-assessment'); ?></label>
                     <input type="number" id="assessment-score" name="score" min="1" max="20" required>
                     <p class="description">
                         <?php _e('Ange poäng mellan 1 och 20', 'reading-assessment'); ?>

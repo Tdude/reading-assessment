@@ -1,5 +1,8 @@
 <?php
-// includes/class-ra-utilities.php
+/**
+ * File: includes/class-ra-utilities.php
+ * Get many HSL colors for stats
+ */
 
 class Reading_Assessment_Utilities {
     private static $instance = null;

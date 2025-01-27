@@ -1,38 +1,33 @@
 document.addEventListener("DOMContentLoaded", () => {
-  // Since we might have multiple recorders, we'll initialize each one
+  let initialized = false;
+
   document
     .querySelectorAll(".ra-audio-recorder")
     .forEach((recorderContainer) => {
-      console.log("Found recorder container:", recorderContainer);
-      initializeRecorder(recorderContainer);
+      if (!initialized) {
+        initializeRecorder(recorderContainer);
+        initialized = true;
+      }
     });
 });
 
 function initializeRecorder(container) {
+  if (container.hasAttribute("data-initialized")) {
+    return;
+  }
+  container.setAttribute("data-initialized", "true");
+
   // Get elements within this specific recorder container
-  const startBtn = document.getElementById("start-recording");
-  const stopBtn = document.getElementById("stop-recording");
-  const uploadBtn = document.getElementById("upload-recording");
-  const playbackBtn = document.getElementById("playback");
-  const trimBtn = document.getElementById("trim-audio");
-  const status = document.getElementById("status");
-  const questionsSection = document.getElementById("questions-section");
-  const controls = document.querySelector(".ra-controls");
-
-  // Initialize WaveSurfer with RegionsPlugin first
-  const regions = WaveSurfer.Regions.create({
-    dragSelection: {
-      slop: 5,
-    },
-  });
-
-  const wavesurfer = WaveSurfer.create({
-    container: "#waveform",
-    waveColor: "violet",
-    progressColor: "purple",
-    cursorColor: "red",
-    plugins: [regions],
-  });
+  const startBtn = container.querySelector("#start-recording");
+  const stopBtn = container.querySelector("#stop-recording");
+  const uploadBtn = container.querySelector("#upload-recording");
+  const playbackBtn = container.querySelector("#playback");
+  const trimBtn = container.querySelector("#trim-audio");
+  const status = container.querySelector("#status");
+  const questionsSection = container.querySelector("#questions-section");
+  const controls = container.querySelector(".ra-controls");
+  const waveformContainer = container.querySelector("#waveform");
+  let activePassageId = null;
 
   let recorder;
   let mediaStream;
@@ -55,6 +50,47 @@ function initializeRecorder(container) {
     trimBtn.disabled = true;
     status.textContent = "Klicka på 'Spela in' för att börja.";
   }
+
+  // Def WaveSurfer >7
+  let regions;
+  const wavesurfer = WaveSurfer.create({
+    container: waveformContainer,
+    waveColor: "violet",
+    progressColor: "purple",
+    cursorColor: "red",
+    height: 128,
+    plugins: [WaveSurfer.Regions.create()],
+  });
+
+  trimBtn.dataset.trimmed = "false";
+
+  // There Can Only Be One
+  window.currentWavesurfer = wavesurfer;
+
+  const safeGetRegions = () => {
+    if (!regions) {
+      regions = wavesurfer.plugins.find(
+        (plugin) => plugin instanceof WaveSurfer.Regions
+      );
+    }
+    return regions?.getRegions() || [];
+  };
+
+  // Init wavesurfer with Regions the version >7 way.
+  wavesurfer.on("ready", () => {
+    safeGetRegions().forEach((region) => region.remove());
+
+    if (regions) {
+      regions.addRegion({
+        id: "primary-region",
+        start: 0,
+        end: wavesurfer.getDuration(),
+        color: "rgba(190, 250, 210, 0.5)",
+        drag: true,
+        resize: true,
+      });
+    }
+  });
 
   // Function to trim audio
   async function trimAudio(audioBlob, start, end) {
@@ -96,10 +132,13 @@ function initializeRecorder(container) {
 
     return new Promise((resolve) => {
       mediaRecorder.ondataavailable = (e) => chunks.push(e.data);
+
       mediaRecorder.onstop = () => {
         const trimmedBlob = new Blob(chunks, { type: "audio/webm" });
         resolve(trimmedBlob);
+        // wavesurfer.empty();
       };
+
       mediaRecorder.start();
       setTimeout(() => mediaRecorder.stop(), (end - start) * 1000 + 100);
     });
@@ -107,13 +146,16 @@ function initializeRecorder(container) {
 
   // startBtn handler
   startBtn.addEventListener("click", async () => {
+    activePassageId = document.getElementById("current-passage-id").value;
+    if (!activePassageId || activePassageId === "0") {
+      status.textContent = "Välj en text att läsa först!";
+      return;
+    }
+
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
       alert("Det verkar som din webbläsare inte stöder inspelning tyvärr.");
       return;
     }
-
-    wavesurfer.empty();
-    regions.clearRegions();
 
     try {
       mediaStream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -128,8 +170,7 @@ function initializeRecorder(container) {
       recorder.onstop = () => {
         audioBlob = new Blob(dataChunks, { type: "audio/webm" });
         const audioUrl = URL.createObjectURL(audioBlob);
-
-        regions.clearRegions();
+        wavesurfer.empty();
         wavesurfer.load(audioUrl);
         status.textContent =
           "Inspelningen är stoppad. Du kan nu spela upp, trimma eller ladda upp den.";
@@ -169,59 +210,64 @@ function initializeRecorder(container) {
   });
 
   uploadBtn.addEventListener("click", async () => {
-    if (!audioBlob) return;
+    if (!audioBlob || !activePassageId || uploadBtn.disabled) return;
 
-    const currentPassageId =
-      document.getElementById("current-passage-id").value;
-    if (!currentPassageId || currentPassageId === "0") {
-      status.textContent = "Välj en text att läsa först!";
-      return;
-    }
+    console.log("Upload starting, trim state:", trimBtn.dataset.trimmed);
 
     uploadBtn.disabled = true;
     uploadBtn.textContent = "Laddar upp...";
 
     try {
-      // --- First AJAX Call: Save Recording ---
-      const currentRegions = regions.getRegions();
+      const currentRegion = safeGetRegions()[0];
       let blobToUpload = audioBlob;
-      let duration = wavesurfer.getDuration();
+      let durationToUpload = wavesurfer.getDuration();
 
-      if (currentRegions.length > 0) {
-        const region = currentRegions[0];
-        if (region.start > 0 || region.end < wavesurfer.getDuration()) {
-          blobToUpload = await trimAudio(audioBlob, region.start, region.end);
-          duration = region.end - region.start;
-        }
+      // Only modify if trimmed
+      if (trimBtn.dataset.trimmed === "true" && currentRegion) {
+        console.log("Trimming with region:", currentRegion);
+        blobToUpload = await trimAudio(
+          audioBlob,
+          currentRegion.start,
+          currentRegion.end
+        );
+        durationToUpload = currentRegion.end - currentRegion.start;
       }
 
-      const uploadFormData = new FormData();
-      uploadFormData.append("action", "ra_save_recording");
-      uploadFormData.append("audio_file", blobToUpload, "recording.webm");
-      uploadFormData.append("duration", duration);
-      uploadFormData.append("passage_id", passageId);
+      console.log("Uploading blob:", blobToUpload);
+      const formData = new FormData();
+      formData.append("action", "ra_save_recording");
+      formData.append("audio_file", blobToUpload, "recording.webm");
+      formData.append("duration", durationToUpload);
+      formData.append("passage_id", activePassageId);
 
-      console.log("Uploading recording...");
-      const uploadResponse = await fetch(raAjax.ajax_url, {
+      const response = await fetch(raAjax.ajax_url, {
         method: "POST",
-        body: uploadFormData,
+        body: formData,
         credentials: "same-origin",
       });
 
-      const uploadData = await uploadResponse.json();
+      const uploadData = await response.json();
 
       if (!uploadData.success) {
         if (uploadData.data?.message === "User not logged in") {
-          alert(
-            "Du måste vara inloggad för att kunna ladda upp en inspelning."
+          RAPublicUtils.showOverlay(
+            "Du måste vara inloggad för att kunna ladda upp en inspelning.",
+            "warning",
+            2000
           );
+          // alert(
+          //   "Du måste vara inloggad för att kunna ladda upp en inspelning."
+          // );
         }
         throw new Error(
           uploadData.data?.message || "Kunde inte spara ljudfilen."
         );
       }
 
+      trimBtn.dataset.trimmed = "false";
+      status.textContent = "Ljudfilen sparades. Nu kommer frågorna!";
       console.log("Recording saved successfully:", uploadData);
+
       status.textContent = "Ljudfilen sparades. Nu kommer frågorna!";
       stopBtn.disabled = true;
       startBtn.disabled = false;
@@ -232,7 +278,7 @@ function initializeRecorder(container) {
       // --- Second AJAX Call: Get Questions ---
       const questionsFormData = new FormData();
       questionsFormData.append("action", "ra_public_get_questions"); // Updated action name
-      questionsFormData.append("passage_id", passageId);
+      questionsFormData.append("passage_id", activePassageId);
       questionsFormData.append("nonce", raAjax.nonce);
 
       console.log("Fetching questions...", {
@@ -241,7 +287,7 @@ function initializeRecorder(container) {
         nonce: raAjax.nonce,
       });
 
-      console.log("Fetching questions for passage:", passageId);
+      console.log("Fetching questions for passage:", activePassageId);
       const questionsResponse = await fetch(raAjax.ajax_url, {
         method: "POST",
         body: questionsFormData,
@@ -305,6 +351,7 @@ function initializeRecorder(container) {
     } catch (error) {
       console.error("Error during upload:", error);
       status.textContent = error.message;
+    } finally {
       uploadBtn.disabled = false;
       uploadBtn.textContent = "Ladda upp";
     }
@@ -313,50 +360,34 @@ function initializeRecorder(container) {
   playbackBtn.addEventListener("click", () => {
     if (wavesurfer.isPlaying()) {
       wavesurfer.pause();
-      playbackBtn.textContent = "Spela upp";
+      playbackBtn.textContent = "Spela";
     } else {
       wavesurfer.play();
-      playbackBtn.textContent = "Pausa inspelning";
+      playbackBtn.textContent = "Pausa";
     }
   });
 
   trimBtn.addEventListener("click", () => {
     try {
-      const currentRegions = regions.getRegions();
-      if (currentRegions.length === 0) {
-        const duration = wavesurfer.getDuration();
-        regions.addRegion({
-          start: 0,
-          end: duration,
-          color: "rgba(180, 243, 200, 0.5)",
-        });
+      trimBtn.dataset.trimmed = "true";
+      const currentRegions = safeGetRegions();
+      if (currentRegions.length > 0) {
+        const region = currentRegions[0];
+        const duration = region.end - region.start;
+        status.textContent = `Inspelningen är nu nedkortad till ${duration.toFixed(
+          2
+        )} sekunder.`;
       }
-      const region = regions.getRegions()[0];
-      status.textContent = `Trimmat ljud från ${region.start.toFixed(
-        2
-      )}s till ${region.end.toFixed(2)}s.`;
     } catch (err) {
       console.error("Error handling regions:", err);
       status.textContent = "Det blev ett fel när jag skulle trimma ljudet";
     }
   });
 
-  wavesurfer.on("ready", () => {
-    try {
-      regions.clearRegions();
-      regions.addRegion({
-        start: 0,
-        end: wavesurfer.getDuration(),
-        color: "rgba(190, 250, 210, 0.5)",
-      });
-    } catch (err) {
-      console.error("Error creating initial region:", err);
-    }
-  });
-
   // Keyboard controls
-  // @TODO: Currently they remove the Answers space key when writing!
+  // @TODO: Currently they remove the Answers space-key character when writing!
   // Start/stop should only be with the space key when the Questions form fields have no focus.
+  /*
   document.addEventListener("keydown", (event) => {
     if (event.code === "Space") {
       event.preventDefault();
@@ -369,6 +400,7 @@ function initializeRecorder(container) {
       }
     }
   });
+  */
 
   // Questions for the read text
   async function handleQuestionSubmit(event) {

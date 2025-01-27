@@ -16,42 +16,6 @@ class Reading_Assessment_Public {
         $this->version = $version;
     }
 
-    /**
-     * Handle subscriber login redirect
-     */
-    public function subscriber_login_redirect($redirect_to, $requested_redirect_to, $user) {
-        if ($user && is_object($user) && !is_wp_error($user)) {
-            if (in_array('subscriber', $user->roles)) {
-                return home_url('/inspelningsmodul?login=success');
-            }
-        }
-        return $redirect_to;
-    }
-
-    /**
-     * Display login success message
-     */
-    public function show_login_message() {
-        if (isset($_GET['login']) && $_GET['login'] === 'success') {
-            ?>
-<div id="login-overlay" class="ra-overlay">
-    <div id="login-message" class="ra-login-message">
-        Du är inloggad.
-    </div>
-</div>
-<script>
-setTimeout(function() {
-    var overlay = document.getElementById('login-overlay');
-    overlay.style.opacity = '0';
-    setTimeout(function() {
-        overlay.remove();
-    }, 500);
-}, 2000);
-</script>
-<?php
-        }
-    }
-
 
     public function enqueue_styles() {
         wp_enqueue_style(
@@ -118,16 +82,41 @@ setTimeout(function() {
             );
 
             // Pass AJAX URL to JavaScript
-            wp_localize_script(
-                'ra-recorder',
-                'raAjax',
-                ['ajax_url' => admin_url('admin-ajax.php')]
-            );
-             // Pass the same data to recorder script
-            wp_localize_script('ra-recorder', 'raAjax', $script_data);
+            wp_localize_script('ra-recorder', 'raAjax', array_merge(
+                ['ajax_url' => admin_url('admin-ajax.php')],
+                $script_data
+            ));
         }
     }
 
+    /**
+     * Handle subscriber login redirect
+     */
+    public function subscriber_login_redirect($redirect_to, $requested_redirect_to, $user) {
+        if ($user && is_object($user) && !is_wp_error($user)) {
+            if (in_array('subscriber', $user->roles)) {
+                return home_url('/inspelningsmodul?login=success');
+            }
+        }
+        return $redirect_to;
+    }
+
+    /**
+     * Display login success message
+     */
+    /*
+    public function show_login_message() {
+        if (isset($_GET['login']) && $_GET['login'] === 'success') {
+            ?>
+<div id="login-overlay" class="ra-overlay">
+    <div id="login-message" class="ra-login-message">
+        Du är inloggad.
+    </div>
+</div>
+<?php
+        }
+    }
+        */
 
     public function shortcode_audio_recorder() {
         ob_start();
@@ -137,13 +126,13 @@ setTimeout(function() {
         ?>
 <div id="audio-recorder" class="ra-audio-recorder">
     <input type="hidden" id="current-passage-id" value="<?php echo esc_attr($current_passage_id); ?>">
-
+    <!--
     <?php if (!$has_valid_passage): ?>
     <div class="ra-warning">
         Välj en text innan du börjar spela in.
     </div>
     <?php endif; ?>
-
+    -->
     <div class="ra-controls <?php echo !$has_valid_passage ? 'ra-controls-disabled' : ''; ?>">
         <button id="start-recording" class="ra-button record" <?php echo !$has_valid_passage ? 'disabled' : ''; ?>>
             <span class="ra-icon">⚫</span>

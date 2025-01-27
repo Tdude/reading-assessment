@@ -1,5 +1,5 @@
 <?php
-/** class-ra-evaluator.php
+/** includes/class-ra-evaluator.php
  * Handles assessment evaluation and scoring.
  *
  * @package    ReadingAssessment
@@ -12,6 +12,68 @@ class Reading_Assessment_Evaluator {
     public function __construct() {
         global $wpdb;
         $this->db = $wpdb;
+    }
+
+    // AI evaluation
+    public function evaluate_recording($recording_id) {
+        $ai_evaluator = new Reading_Assessment_AI_Evaluator();
+        $ai_result = $ai_evaluator->process_recording($recording_id);
+
+        if (!is_wp_error($ai_result)) {
+            $result = $this->store_evaluation_result($recording_id, [
+                'ai_score' => $ai_result['lus_score'],
+                'ai_confidence' => $ai_result['confidence_score'],
+                'manual_score' => null
+            ]);
+
+            if (is_wp_error($result)) {
+                return $result;
+            }
+
+            return $ai_result;
+        }
+
+        return $ai_result;
+    }
+
+    // Add this method to handle storage
+    private function store_evaluation_result($recording_id, $data) {
+        global $wpdb;
+
+        return $wpdb->insert(
+            $wpdb->prefix . 'ra_assessments',
+            [
+                'recording_id' => $recording_id,
+                'ai_score' => $data['ai_score'],
+                'ai_confidence' => $data['ai_confidence'],
+                'manual_score' => $data['manual_score'],
+                'created_at' => current_time('mysql')
+            ],
+            ['%d', '%f', '%f', '%d', '%s']
+        );
+    }
+
+    public function transcribe_recording($file_path) {
+        // Example using Google Speech-to-Text API
+        $audio = file_get_contents($file_path);
+        $client = new Google\Cloud\Speech\V1\SpeechClient();
+        $config = new Google\Cloud\Speech\V1\RecognitionConfig([
+            'encoding' => 'LINEAR16',
+            'sampleRateHertz' => 16000,
+            'languageCode' => 'sv-SE'
+        ]);
+        $audio_config = new Google\Cloud\Speech\V1\RecognitionAudio([
+            'content' => $audio
+        ]);
+
+        $response = $client->recognize($config, $audio_config);
+        $transcription = '';
+
+        foreach ($response->getResults() as $result) {
+            $transcription .= $result->getAlternatives()[0]->getTranscript();
+        }
+
+        return $transcription;
     }
 
     public function evaluate_assessment($recording_id, $answers) {
@@ -66,10 +128,11 @@ class Reading_Assessment_Evaluator {
 
         // Store assessment result
         $assessment_id = $this->store_assessment($recording_id, $total_score, $normalized_score);
-
+        $ai_score = log10($normalized_score + 1) * 20; // Scale 1–20
         return [
             'assessment_id' => $assessment_id,
             'score' => $total_score,
+            'ai_score' => $ai_score,
             'normalized_score' => $normalized_score,
             'correct_answers' => $correct_answers,
             'total_questions' => count($questions)

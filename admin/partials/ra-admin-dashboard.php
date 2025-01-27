@@ -19,6 +19,21 @@ class Reading_Assessment_Dashboard_Admin {
 
     private function init_hooks() {
         add_action('wp_ajax_ra_admin_delete_recording', array($this, 'ajax_delete_recording'));
+
+        add_action('ra_process_recording', [$this, 'handle_ai_processing']);
+        // Schedule cron event if not already scheduled
+        if (!wp_next_scheduled('ra_process_pending_recordings')) {
+            wp_schedule_event(time(), 'hourly', 'ra_process_pending_recordings');
+        }
+    }
+
+    public function handle_ai_processing($recording_id) {
+        $ai_evaluator = new Reading_Assessment_AI_Evaluator();
+        $result = $ai_evaluator->process_recording($recording_id);
+
+        if (is_wp_error($result)) {
+            error_log('AI Processing error: ' . $result->get_error_message());
+        }
     }
 
     public function render_page() {

@@ -89,7 +89,7 @@ class Reading_Assessment {
 
         // Other hooks
         $this->loader->add_filter('login_redirect', $plugin_public, 'subscriber_login_redirect', 10, 3);
-        $this->loader->add_action('wp_footer', $plugin_public, 'show_login_message');
+        // $this->loader->add_action('wp_footer', $plugin_public, 'show_login_message');
     }
 
     public function run() {

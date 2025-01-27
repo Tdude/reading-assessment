@@ -1,6 +1,6 @@
 <?php
-/** class-ra-recorder.php
- * Handles audio recording functionality.
+/** File: admin/includes/class-ra-recorder.php
+ * Handles public audio recording functionality.
  *
  * @package    ReadingAssessment
  * @subpackage ReadingAssessment/includes
@@ -15,6 +15,9 @@ class Reading_Assessment_Recorder {
     public function __construct() {
         $upload_dir = wp_upload_dir();
         $this->upload_dir = $upload_dir['basedir'] . '/reading-assessment';
+
+        require_once RA_PLUGIN_DIR . 'includes/class-ra-error-handler.php';
+
         $this->allowed_mime_types = array(
             'audio/webm',
             'audio/ogg',
@@ -83,32 +86,29 @@ class Reading_Assessment_Recorder {
     private function validate_audio_file($file) {
         // Check for upload errors
         if ($file['error'] !== UPLOAD_ERR_OK) {
-            return new WP_Error(
+            return RA_Error_Handler::generate_error(
                 'upload_error',
-                $this->get_upload_error_message($file['error'])
+                RA_Error_Handler::get_upload_error_message($file['error'])
             );
         }
-
         // Check file size
         if ($file['size'] > $this->max_file_size) {
-            return new WP_Error(
+            return RA_Error_Handler::generate_error(
                 'file_too_large',
-                __('The audio file is too large.', 'reading-assessment')
+                'The audio file is too large.'
             );
         }
-
         // Check MIME type
         $finfo = finfo_open(FILEINFO_MIME_TYPE);
         $mime_type = finfo_file($finfo, $file['tmp_name']);
         finfo_close($finfo);
 
         if (!in_array($mime_type, $this->allowed_mime_types)) {
-            return new WP_Error(
+            return RA_Error_Handler::generate_error(
                 'invalid_file_type',
-                __('Invalid audio file type.', 'reading-assessment')
+                'Invalid audio file type.'
             );
         }
-
         return true;
     }
 
@@ -135,32 +135,5 @@ class Reading_Assessment_Recorder {
             return unlink($filepath);
         }
         return false;
-    }
-
-    /**
-     * Get upload error message
-     *
-     * @param int $error_code PHP upload error code
-     * @return string Error message
-     */
-    private function get_upload_error_message($error_code) {
-        switch ($error_code) {
-            case UPLOAD_ERR_INI_SIZE:
-                return __('The uploaded file exceeds the upload_max_filesize directive in php.ini.', 'reading-assessment');
-            case UPLOAD_ERR_FORM_SIZE:
-                return __('The uploaded file exceeds the MAX_FILE_SIZE directive in the HTML form.', 'reading-assessment');
-            case UPLOAD_ERR_PARTIAL:
-                return __('The uploaded file was only partially uploaded.', 'reading-assessment');
-            case UPLOAD_ERR_NO_FILE:
-                return __('No file was uploaded.', 'reading-assessment');
-            case UPLOAD_ERR_NO_TMP_DIR:
-                return __('Missing a temporary folder.', 'reading-assessment');
-            case UPLOAD_ERR_CANT_WRITE:
-                return __('Failed to write file to disk.', 'reading-assessment');
-            case UPLOAD_ERR_EXTENSION:
-                return __('A PHP extension stopped the file upload.', 'reading-assessment');
-            default:
-                return __('Unknown upload error.', 'reading-assessment');
-        }
     }
 }

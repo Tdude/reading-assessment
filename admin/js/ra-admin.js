@@ -2,7 +2,7 @@
   "use strict";
   // admin/js/ra-admin.js
   // Debug raAdmin global at script start
-  console.log("raAdmin at script start:", typeof raAdmin, raAdmin);
+  // console.log("raAdmin at script start:", typeof raAdmin, raAdmin);
 
   if (typeof $ === "undefined") {
     console.error("jQuery is required for ReadingAssessment admin");
@@ -119,308 +119,11 @@
       }
     },
 
-    // Textpassage related Question handling
-    questions: {
-      initActions: function () {
-        console.log("Initializing question actions");
-        const $container = $(".wrap"); // Container for both form and questions list
-
-        $container.on("click", "[data-action]", function (e) {
-          e.preventDefault();
-          const action = $(this).data("action");
-          const id = $(this).data("id");
-
-          console.log("Question Action:", action, "ID:", id);
-
-          switch (action) {
-            case "new-question":
-              RAUtils.questions.resetForm();
-              break;
-            case "edit":
-              RAUtils.questions.edit(id);
-              break;
-            case "delete":
-              RAUtils.questions.delete(id, $(this));
-              break;
-          }
-        });
-
-        // Handle passage selection change
-        $("#passage_id").on("change", function () {
-          const passageId = $(this).val();
-          window.location.href =
-            window.location.pathname +
-            "?page=reading-assessment-questions&passage_id=" +
-            passageId;
-        });
-      },
-
-      loadQuestionsForPassage: function (passageId) {
-        RAUtils.ajaxRequest(
-          "ra_get_questions",
-          { passage_id: passageId },
-          function (response) {
-            $(".ra-questions-list").html(response);
-          },
-          function (errorMessage) {
-            console.error("Failed to load questions:", errorMessage);
-            alert(errorMessage || "Kunde inte ladda frågorna");
-          }
-        );
-      },
-
-      resetForm: function () {
-        RAUtils.resetForm("ra-question-form", {
-          titleElement: "#ra-form-title",
-          defaultTitle: "Lägg till ny fråga",
-          cancelButton: "#ra-cancel-edit",
-          hiddenFields: ["question_id"],
-        });
-        $("#submit").val("Spara fråga");
-        RAUtils.scrollTo($("#ra-question-form"));
-      },
-
-      edit: function (questionId) {
-        RAUtils.ajaxRequest(
-          "ra_get_question",
-          { question_id: questionId },
-          function (question) {
-            $("#question_id").val(question.id);
-            $("#question_text").val(question.question_text);
-            $("#correct_answer").val(question.correct_answer);
-            $("#weight").val(question.weight);
-            $("#passage_id").val(question.passage_id);
-
-            $("#ra-form-title").text("Ändra fråga");
-            $("#ra-cancel-edit").show();
-            $("#submit").val("Uppdatera fråga");
-
-            RAUtils.scrollTo($("#ra-question-form"));
-          },
-          function (errorMessage) {
-            alert(errorMessage || "Kunde inte ladda frågan");
-          }
-        );
-      },
-
-      delete: function (questionId, $button) {
-        if (RAUtils.confirm("Är du säker på att du vill radera denna fråga?")) {
-          $button.prop("disabled", true);
-
-          RAUtils.ajaxRequest(
-            "ra_delete_question",
-            { question_id: questionId },
-            function (response) {
-              $button.closest("tr").fadeOut(400, function () {
-                $(this).remove();
-                if ($(".ra-questions-list tbody tr").length === 0) {
-                  $(".ra-questions-list table").replaceWith(
-                    "<p>" + raAdmin.i18n.no_questions + "</p>"
-                  );
-                }
-              });
-            },
-            function (errorMessage) {
-              console.error("Delete error:", errorMessage);
-              alert(errorMessage || "Kunde inte radera frågan");
-              $button.prop("disabled", false);
-            }
-          );
-        }
-      },
-    },
-
-    passages: {
-      initActions: function () {
-        console.log("Initializing passage actions");
-        const $container = $(".wrap");
-
-        // First, remove any existing handlers
-        $container.off("click.passageActions", "[data-action]");
-
-        // Then add the new handler with a namespace
-        $container.on("click.passageActions", "[data-action]", function (e) {
-          e.preventDefault();
-          e.stopPropagation(); // Prevent event bubbling
-
-          const action = $(this).data("action");
-          const id = $(this).data("id");
-
-          console.log("Action:", action, "ID:", id);
-
-          switch (action) {
-            case "new-passage":
-              RAUtils.passages.resetForm();
-              break;
-            case "edit":
-              RAUtils.passages.edit(id);
-              break;
-            case "delete":
-              RAUtils.passages.delete(id, $(this));
-              break;
-          }
-        });
-      },
-
-      resetForm: function () {
-        RAUtils.resetForm("ra-passage-form", {
-          editor: "content",
-          titleElement: "#ra-form-title",
-          defaultTitle: "Lägg till ny text",
-          cancelButton: "#ra-cancel-edit",
-          hiddenFields: ["passage_id"],
-        });
-
-        // Scroll to the form
-        RAUtils.scrollTo($("#ra-passage-form"));
-      },
-
-      edit: function (passageId) {
-        RAUtils.ajaxRequest(
-          "ra_get_passage",
-          { passage_id: passageId },
-          function (passage) {
-            $("#passage_id").val(passage.id);
-            $("#title").val(passage.title);
-            $("#difficulty_level").val(passage.difficulty_level);
-            $("#time_limit").val(passage.time_limit);
-
-            if (typeof tinyMCE !== "undefined") {
-              const editor = tinyMCE.get("content");
-              if (editor) {
-                editor.setContent(passage.content);
-              }
-            }
-
-            $("#ra-form-title").text("Ändra text");
-            $("#ra-cancel-edit").show();
-            RAUtils.scrollTo($("#ra-passage-form"));
-          },
-          function (errorMessage) {
-            alert(errorMessage || "Kunde inte ladda texten");
-          }
-        );
-      },
-
-      delete: function (passageId, $button) {
-        if (RAUtils.confirm("Är du säker på att du vill radera denna text?")) {
-          $button.prop("disabled", true);
-
-          RAUtils.ajaxRequest(
-            "ra_delete_passage",
-            {
-              passage_id: passageId,
-            },
-            function (response) {
-              console.log("Delete success:", response);
-              $button.closest("tr").fadeOut(400, function () {
-                $(this).remove();
-              });
-            },
-            function (errorMessage) {
-              console.error("Delete error:", errorMessage);
-              alert(errorMessage || "Kunde inte radera texten");
-              $button.prop("disabled", false);
-            }
-          );
-        }
-      },
-    },
-
-    assignments: {
-      initialized: false,
-      initActions: function () {
-        if (this.initialized) return;
-        const $container = $(".wrap");
-        const $form = $("#ra-assignment-form");
-        // Remove existing handlers
-        $container.off("click.assignmentActions", "[data-action]");
-        $form.off("submit.assignmentForm");
-
-        // Add delete handler
-        $container.on("click.assignmentActions", "[data-action]", function (e) {
-          e.preventDefault();
-          e.stopPropagation();
-
-          const action = $(this).data("action");
-          const id = $(this).data("id");
-
-          console.log("Assignment Action:", action, "ID:", id);
-
-          switch (action) {
-            case "delete":
-              RAUtils.assignments.delete(id, $(this));
-              break;
-          }
-        });
-
-        // Add form submission handler with namespace
-        $form.on("submit.assignmentForm", function (e) {
-          e.preventDefault();
-          RAUtils.assignments.create($(this));
-        });
-
-        this.initialized = true;
-      },
-
-      create: function ($form) {
-        const formData = {
-          user_id: $("#user_id").val(),
-          passage_id: $("#passage_id").val(),
-          due_date: $("#due_date").val(),
-        };
-
-        RAUtils.ajaxRequest(
-          "ra_create_assignment",
-          formData,
-          function (response) {
-            location.reload();
-          },
-          function (errorMessage) {
-            alert(errorMessage || "Kunde inte skapa tilldelningen");
-          }
-        );
-      },
-
-      delete: function (assignmentId, $button) {
-        if (
-          RAUtils.confirm(
-            "Är du säker på att du vill ta bort denna tilldelning?"
-          )
-        ) {
-          $button.prop("disabled", true);
-
-          RAUtils.ajaxRequest(
-            "ra_delete_assignment",
-            { assignment_id: assignmentId },
-            function (response) {
-              $button.closest("tr").fadeOut(400, function () {
-                $(this).remove();
-                // Check if this was the last row
-                if ($(".ra-assignments-list tbody tr").length === 0) {
-                  $(".ra-assignments-list table").replaceWith(
-                    "<p>" + raAdmin.i18n.no_assignments + "</p>"
-                  );
-                }
-              });
-            },
-            function (errorMessage) {
-              console.error("Delete error:", errorMessage);
-              alert(errorMessage || "Kunde inte ta bort tilldelningen");
-              $button.prop("disabled", false);
-            }
-          );
-        }
-      },
-    },
-
     dashboard: {
       init: function () {
-        console.log("Dashboard init started");
-
         // Check for required elements and data
-        console.log("Chart.js available:", typeof Chart !== "undefined");
-        console.log("raAdmin data:", raAdmin);
+        // console.log("Chart.js available:", typeof Chart !== "undefined");
+        // console.log("raAdmin data:", raAdmin);
 
         const $container = $(".ra-dashboard-widgets");
         if (!$container.length) {
@@ -430,7 +133,6 @@
 
         // Initialize chart if canvas exists
         if ($("#progressChart").length) {
-          console.log("Found progress chart, initializing...");
           this.initProgressChart();
         }
 
@@ -439,10 +141,8 @@
       },
 
       initProgressChart: function () {
-        console.log("Starting chart initialization");
-
         const chartData = raAdmin?.progressData;
-        console.log("Raw chart data:", JSON.stringify(chartData, null, 2)); // Pretty print the data
+        // console.log("Raw chart data:", JSON.stringify(chartData, null, 2)); // Pretty print the data
 
         if (!chartData || !Array.isArray(chartData)) {
           console.error("Invalid chart data:", chartData);
@@ -461,6 +161,7 @@
           (item) => parseFloat(item.max_grade) || 0
         );
 
+        /* Some debugging of (the likeable) Chart.js
         console.log("Mapped data details:", {
           labels: JSON.stringify(chartLabels),
           averages: JSON.stringify(avgData),
@@ -484,6 +185,7 @@
           minimums: minData,
           maximums: maxData,
         });
+        */
 
         try {
           const ctx = $("#progressChart")[0].getContext("2d");
@@ -596,7 +298,6 @@
               },
             },
           });
-          console.log("Chart created successfully with data");
         } catch (error) {
           console.error("Error creating chart:", error);
           console.error(error);
@@ -635,13 +336,13 @@
           const period = $("#progress-period").val();
           const userId = $("#progress-user").val();
 
-          console.log("Fetching progress data:", { period, userId });
+          // console.log("Fetching progress data:", { period, userId });
 
           RAUtils.ajaxRequest(
             "ra_get_progress_data",
             { period, user_id: userId },
             (response) => {
-              console.log("Got progress data response:", response);
+              // console.log("Got progress data response:", response);
               this.updateProgressChart(response);
             },
             (error) => {
@@ -652,6 +353,298 @@
         };
         // Listen for changes on both dropdowns
         $("#progress-period, #progress-user").on("change", fetchProgressData);
+      },
+    },
+    // Textpassage related Question handling
+    questions: {
+      initActions: function () {
+        const $container = $(".wrap"); // Container for both form and questions list
+
+        $container.on("click", "[data-action]", function (e) {
+          e.preventDefault();
+          const action = $(this).data("action");
+          const id = $(this).data("id");
+
+          // console.log("Question Action:", action, "ID:", id);
+
+          switch (action) {
+            case "new-question":
+              RAUtils.questions.resetForm();
+              break;
+            case "edit":
+              RAUtils.questions.edit(id);
+              break;
+            case "delete":
+              RAUtils.questions.delete(id, $(this));
+              break;
+          }
+        });
+
+        // Handle passage selection change
+        $("#passage_id").on("change", function () {
+          const passageId = $(this).val();
+          window.location.href =
+            window.location.pathname +
+            "?page=reading-assessment-questions&passage_id=" +
+            passageId;
+        });
+      },
+
+      loadQuestionsForPassage: function (passageId) {
+        RAUtils.ajaxRequest(
+          "ra_get_questions",
+          { passage_id: passageId },
+          function (response) {
+            $(".ra-questions-list").html(response);
+          },
+          function (errorMessage) {
+            console.error("Failed to load questions:", errorMessage);
+            alert(errorMessage || "Kunde inte ladda frågorna");
+          }
+        );
+      },
+
+      resetForm: function () {
+        RAUtils.resetForm("ra-question-form", {
+          titleElement: "#ra-form-title",
+          defaultTitle: "Lägg till ny fråga",
+          cancelButton: "#ra-cancel-edit",
+          hiddenFields: ["question_id"],
+        });
+        $("#submit").val("Spara fråga");
+        RAUtils.scrollTo($("#ra-question-form"));
+      },
+
+      edit: function (questionId) {
+        RAUtils.ajaxRequest(
+          "ra_get_question",
+          { question_id: questionId },
+          function (question) {
+            $("#question_id").val(question.id);
+            $("#question_text").val(question.question_text);
+            $("#correct_answer").val(question.correct_answer);
+            $("#weight").val(question.weight);
+            $("#passage_id").val(question.passage_id);
+
+            $("#ra-form-title").text("Ändra fråga");
+            $("#ra-cancel-edit").show();
+            $("#submit").val("Uppdatera fråga");
+
+            RAUtils.scrollTo($("#ra-question-form"));
+          },
+          function (errorMessage) {
+            alert(errorMessage || "Kunde inte ladda frågan");
+          }
+        );
+      },
+
+      delete: function (questionId, $button) {
+        if (RAUtils.confirm("Är du säker på att du vill radera denna fråga?")) {
+          $button.prop("disabled", true);
+
+          RAUtils.ajaxRequest(
+            "ra_delete_question",
+            { question_id: questionId },
+            function (response) {
+              $button.closest("tr").fadeOut(400, function () {
+                $(this).remove();
+                if ($(".ra-questions-list tbody tr").length === 0) {
+                  $(".ra-questions-list table").replaceWith(
+                    "<p>" + raAdmin.i18n.no_questions + "</p>"
+                  );
+                }
+              });
+            },
+            function (errorMessage) {
+              console.error("Delete error:", errorMessage);
+              alert(errorMessage || "Kunde inte radera frågan");
+              $button.prop("disabled", false);
+            }
+          );
+        }
+      },
+    },
+
+    passages: {
+      initActions: function () {
+        const $container = $(".wrap");
+
+        // First, remove any existing handlers
+        $container.off("click.passageActions", "[data-action]");
+
+        // Then add the new handler with a namespace
+        $container.on("click.passageActions", "[data-action]", function (e) {
+          e.preventDefault();
+          e.stopPropagation(); // Prevent event bubbling
+
+          const action = $(this).data("action");
+          const id = $(this).data("id");
+
+          // console.log("Action:", action, "ID:", id);
+
+          switch (action) {
+            case "new-passage":
+              RAUtils.passages.resetForm();
+              break;
+            case "edit":
+              RAUtils.passages.edit(id);
+              break;
+            case "delete":
+              RAUtils.passages.delete(id, $(this));
+              break;
+          }
+        });
+      },
+
+      resetForm: function () {
+        RAUtils.resetForm("ra-passage-form", {
+          editor: "content",
+          titleElement: "#ra-form-title",
+          defaultTitle: "Lägg till ny text",
+          cancelButton: "#ra-cancel-edit",
+          hiddenFields: ["passage_id"],
+        });
+
+        // Scroll to the form
+        RAUtils.scrollTo($("#ra-passage-form"));
+      },
+
+      edit: function (passageId) {
+        RAUtils.ajaxRequest(
+          "ra_get_passage",
+          { passage_id: passageId },
+          function (passage) {
+            $("#passage_id").val(passage.id);
+            $("#title").val(passage.title);
+            $("#difficulty_level").val(passage.difficulty_level);
+            $("#time_limit").val(passage.time_limit);
+
+            if (typeof tinyMCE !== "undefined") {
+              const editor = tinyMCE.get("content");
+              if (editor) {
+                editor.setContent(passage.content);
+              }
+            }
+
+            $("#ra-form-title").text("Ändra text");
+            $("#ra-cancel-edit").show();
+            RAUtils.scrollTo($("#ra-passage-form"));
+          },
+          function (errorMessage) {
+            alert(errorMessage || "Kunde inte ladda texten");
+          }
+        );
+      },
+
+      delete: function (passageId, $button) {
+        if (RAUtils.confirm("Är du säker på att du vill radera denna text?")) {
+          $button.prop("disabled", true);
+
+          RAUtils.ajaxRequest(
+            "ra_delete_passage",
+            {
+              passage_id: passageId,
+            },
+            function (response) {
+              console.log("Delete success:", response);
+              $button.closest("tr").fadeOut(400, function () {
+                $(this).remove();
+              });
+            },
+            function (errorMessage) {
+              console.error("Delete error:", errorMessage);
+              alert(errorMessage || "Kunde inte radera texten");
+              $button.prop("disabled", false);
+            }
+          );
+        }
+      },
+    },
+
+    assignments: {
+      initialized: false,
+      initActions: function () {
+        if (this.initialized) return;
+        const $container = $(".wrap");
+        const $form = $("#ra-assignment-form");
+        // Remove existing handlers
+        $container.off("click.assignmentActions", "[data-action]");
+        $form.off("submit.assignmentForm");
+
+        // Add delete handler
+        $container.on("click.assignmentActions", "[data-action]", function (e) {
+          e.preventDefault();
+          e.stopPropagation();
+
+          const action = $(this).data("action");
+          const id = $(this).data("id");
+
+          // console.log("Assignment Action:", action, "ID:", id);
+
+          switch (action) {
+            case "delete":
+              RAUtils.assignments.delete(id, $(this));
+              break;
+          }
+        });
+
+        // Add form submission handler with namespace
+        $form.on("submit.assignmentForm", function (e) {
+          e.preventDefault();
+          RAUtils.assignments.create($(this));
+        });
+
+        this.initialized = true;
+      },
+
+      create: function ($form) {
+        const formData = {
+          user_id: $("#user_id").val(),
+          passage_id: $("#passage_id").val(),
+          due_date: $("#due_date").val(),
+        };
+
+        RAUtils.ajaxRequest(
+          "ra_create_assignment",
+          formData,
+          function (response) {
+            location.reload();
+          },
+          function (errorMessage) {
+            alert(errorMessage || "Kunde inte skapa tilldelningen");
+          }
+        );
+      },
+
+      delete: function (assignmentId, $button) {
+        if (
+          RAUtils.confirm(
+            "Är du säker på att du vill ta bort denna tilldelning?"
+          )
+        ) {
+          $button.prop("disabled", true);
+
+          RAUtils.ajaxRequest(
+            "ra_delete_assignment",
+            { assignment_id: assignmentId },
+            function (response) {
+              $button.closest("tr").fadeOut(400, function () {
+                $(this).remove();
+                // Check if this was the last row
+                if ($(".ra-assignments-list tbody tr").length === 0) {
+                  $(".ra-assignments-list table").replaceWith(
+                    "<p>" + raAdmin.i18n.no_assignments + "</p>"
+                  );
+                }
+              });
+            },
+            function (errorMessage) {
+              console.error("Delete error:", errorMessage);
+              alert(errorMessage || "Kunde inte ta bort tilldelningen");
+              $button.prop("disabled", false);
+            }
+          );
+        }
       },
     },
 
@@ -727,16 +720,51 @@
         }
       },
 
+      evaluateWithAI: function (recordingId) {
+        RAUtils.ajaxRequest(
+          "ra_admin_ai_evaluate",
+          { recording_id: recordingId },
+          function (response) {
+            // Show AI evaluation results in modal
+            const aiScore = response.lus_score;
+            const confidence = response.confidence_score;
+
+            // Update the assessment modal to show AI results
+            $("#ai-evaluation-results").html(`
+                    <div class="ai-score-display">
+                        <p>AI Bedömning: ${aiScore}/20 (${Math.round(
+              confidence * 100
+            )}% säkerhet)</p>
+                    </div>
+                `);
+
+            // Pre-fill the manual score input with AI's suggestion
+            $("#assessment-score").val(aiScore);
+
+            // Show the assessment modal
+            RAUtils.modals.showAssessment(recordingId);
+          },
+          function (errorMessage) {
+            alert(errorMessage || "Kunde inte utföra AI-bedömning");
+          }
+        );
+      },
+
       evaluate: function (formData) {
-        if (this.isSubmitting) {
-          console.log("Submission already in progress");
-          return;
-        }
+        if (this.isSubmitting) return;
 
         this.isSubmitting = true;
+        const recordingId = formData.recording_id;
+
+        // First get AI evaluation
+        this.evaluateWithAI(recordingId);
+
         RAUtils.ajaxRequest(
           "ra_admin_save_assessment",
-          formData,
+          {
+            ...formData,
+            ai_score: $("#ai-evaluation-results").data("ai-score"),
+          },
           function (response) {
             this.isSubmitting = false;
             $("#assessment-modal").hide();
@@ -751,9 +779,8 @@
 
       // Dashboard specific functionality
       initDashboard: function () {
-        console.log("Initializing dashboard recording actions");
         const $container = $(".ra-dashboard-widgets");
-        console.log("Dashboard container found:", $container.length);
+        // console.log("Dashboard container found:", $container.length);
 
         // Remove any existing handlers
         $container.off("click.dashboardRecordings", "[data-action]");
@@ -785,8 +812,7 @@
       managementInitialized: false,
 
       initManagement: function () {
-        if (this.managementInitialized) return; // Prevent multiple initializations
-        console.log("Initializing recordings management");
+        if (this.managementInitialized) return;
         const $container = $(".wrap");
 
         // Remove any existing handlers first
@@ -970,14 +996,14 @@
         // Check if we're on the dashboard by looking for the dashboard widgets
         const $dashboardWrap = $(".ra-dashboard-widgets");
         const isDashboard = $dashboardWrap.length > 0;
-
+        /*
         console.log("Dashboard detection:", {
           isDashboard: isDashboard,
           dashboardElements: $dashboardWrap.length,
         });
+        */
 
         if (isDashboard) {
-          console.log("Initializing dashboard features");
           this.dashboard.init();
           this.modals.init();
           this.recordings.initDashboard();
@@ -987,7 +1013,6 @@
 
         // Page-specific initializations
         if (currentPage === "dashboard") {
-          console.log("Initializing dashboard"); // Debug log
           this.dashboard.init();
           this.modals.init();
         }
@@ -1227,8 +1252,6 @@
 
   // Single initialization point
   $(document).ready(function () {
-    console.log("Document ready  on ra-admin.js is called");
-    console.log("raAdmin in ready:", typeof raAdmin, raAdmin);
     RAUtils.init();
   });
 })(jQuery);
