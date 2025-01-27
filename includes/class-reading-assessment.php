@@ -21,15 +21,18 @@ class Reading_Assessment {
         $this->set_locale();
         $this->define_admin_hooks();
         $this->define_public_hooks();
+        $this->define_cron_hooks();
     }
 
     private function load_dependencies() {
+        require_once RA_PLUGIN_DIR . 'includes/class-ra-error-handler.php';
         require_once RA_PLUGIN_DIR . 'includes/class-ra-loader.php';
         require_once RA_PLUGIN_DIR . 'includes/class-ra-i18n.php';
         require_once RA_PLUGIN_DIR . 'admin/class-ra-admin.php';
         require_once RA_PLUGIN_DIR . 'public/class-ra-public.php';
         require_once RA_PLUGIN_DIR . 'includes/class-ra-recorder.php';
         require_once RA_PLUGIN_DIR . 'includes/class-ra-evaluator.php';
+        require_once RA_PLUGIN_DIR . 'includes/class-ra-ai-evaluator.php';
         require_once RA_PLUGIN_DIR . 'includes/class-ra-database.php';
 
         $this->loader = new Reading_Assessment_Loader();
@@ -57,6 +60,7 @@ class Reading_Assessment {
         $this->loader->add_action('admin_menu', $plugin_admin, 'add_menu_pages');
         $this->loader->add_action('admin_init', $plugin_admin, 'register_settings');
 
+
         // AJAX handlers for ADMIN - note the 'admin_' prefix
         // @TODO: simplify into fewer admin nonces if possible!
         $this->loader->add_action('wp_ajax_ra_admin_get_passage', $plugin_admin, 'ajax_get_passage');
@@ -70,6 +74,7 @@ class Reading_Assessment {
         $this->loader->add_action('wp_ajax_ra_admin_delete_recording', $plugin_admin, 'ajax_delete_recording');
         $this->loader->add_action('wp_ajax_ra_admin_save_interactions', $plugin_admin, 'ajax_save_interactions');
         $this->loader->add_action('wp_ajax_ra_admin_get_progress_data', $plugin_admin, 'ajax_get_progress_data');
+        $this->loader->add_action('wp_ajax_ra_admin_ai_evaluate', $plugin_admin, 'ajax_ai_evaluate');
     }
 
     private function define_public_hooks() {
@@ -86,10 +91,11 @@ class Reading_Assessment {
         $this->loader->add_action('wp_ajax_ra_save_recording', $plugin_public, 'ajax_save_recording');
         $this->loader->add_action('wp_ajax_ra_submit_answers', $plugin_public, 'ajax_submit_answers');
         $this->loader->add_action('wp_ajax_ra_get_assessment', $plugin_public, 'ajax_get_assessment');
-
+        $this->loader->add_action('ra_after_save_recording', $plugin_public, 'schedule_recording_processing');
         // Other hooks
         $this->loader->add_filter('login_redirect', $plugin_public, 'subscriber_login_redirect', 10, 3);
         // $this->loader->add_action('wp_footer', $plugin_public, 'show_login_message');
+
     }
 
     public function run() {
@@ -106,5 +112,11 @@ class Reading_Assessment {
 
     public function get_version() {
         return $this->version;
+    }
+
+    private function define_cron_hooks() {
+        $ai_evaluator = new Reading_Assessment_AI_Evaluator();
+        $this->loader->add_action('ra_process_transcription', $ai_evaluator, 'process_transcription');
+        $this->loader->add_action('ra_process_evaluation', $ai_evaluator, 'process_recording');
     }
 }

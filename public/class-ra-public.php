@@ -29,7 +29,6 @@ class Reading_Assessment_Public {
 
     public function enqueue_scripts() {
 
-
         wp_enqueue_script(
             $this->plugin_name . '-public',
             RA_PLUGIN_URL . 'public/js/ra-public.js',
@@ -37,7 +36,6 @@ class Reading_Assessment_Public {
             $this->version,
             true
         );
-
 
             // Get current user and nonce for debog
         $ajax_nonce = wp_create_nonce('ra_public_nonce');
@@ -49,7 +47,6 @@ class Reading_Assessment_Public {
                 'debug' => true
             );
         // error_log('Localizing script with data: ' . print_r($script_data, true));
-
 
 
         // Include (on slug inspelningsmodul) WaveSurfer.js from CDN
@@ -87,6 +84,16 @@ class Reading_Assessment_Public {
                 $script_data
             ));
         }
+    }
+
+    /**
+     * Summary:
+     * Cron job for asymmetric evaluating recorded sound files
+     * @param mixed $recording_id
+     * @return void
+     */
+    public function schedule_recording_processing($recording_id) {
+        wp_schedule_single_event(time(), 'ra_process_transcription', array($recording_id));
     }
 
     /**
@@ -200,7 +207,8 @@ class Reading_Assessment_Public {
         return ob_get_clean();
     }
 
-    // Here is where we show the text list tied to the user ID. An admin gives the user appropriate texts.
+
+    // Here is where we show the text list tied to the user ID
     public function shortcode_display_passage($atts) {
         $current_user_id = get_current_user_id();
         if (!$current_user_id) {
@@ -328,7 +336,6 @@ class Reading_Assessment_Public {
         }
     }
 
-
     public function ajax_get_questions() {
         // error_log('===== START ajax_get_questions =====');
         // error_log('POST data: ' . print_r($_POST, true));
@@ -362,8 +369,6 @@ class Reading_Assessment_Public {
         wp_send_json_success($questions);
         // error_log('===== END ajax_get_questions =====');
     }
-
-
 
     public function ajax_submit_answers() {
 

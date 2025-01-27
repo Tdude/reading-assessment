@@ -1,5 +1,6 @@
 <?php
-/** class-ra-database.php
+/**
+ * File: includes/class-ra-database.php
  * Handles database operations for the plugin.
  *
  * @package ReadingAssessment
@@ -1290,9 +1291,9 @@ class Reading_Assessment_Database {
                 $limit
             );
 
-            error_log('Progress query: ' . $query);
+            //error_log('Progress query: ' . $query);
             $results = $this->db->get_results($query);
-            error_log('Progress results: ' . print_r($results, true));
+            //error_log('Progress results: ' . print_r($results, true));
 
             return array_reverse($results); // Reverse to show oldest first
 

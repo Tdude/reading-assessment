@@ -10,6 +10,8 @@
 require_once plugin_dir_path(__FILE__) . 'partials/ra-admin-dashboard.php';
 require_once plugin_dir_path(__FILE__) . 'partials/ra-admin-assignments.php';
 require_once plugin_dir_path(__FILE__) . 'partials/ra-admin-questions.php';
+
+require_once plugin_dir_path(__FILE__) . 'partials/ra-admin-statistics.php';
 require_once plugin_dir_path(__FILE__) . 'partials/ra-admin-results.php';
 require_once plugin_dir_path(__DIR__) . 'includes/class-ra-utilities.php';
 
@@ -102,13 +104,6 @@ class Reading_Assessment_Admin {
         // Get dashboard data
         $dashboard_data = $this->dashboard_admin->get_dashboard_data();
 
-        // Debug the data
-        error_log('Progress data being passed to JS: ' . print_r($dashboard_data['class_progress'], true));
-        $debug_data = $dashboard_data['class_progress'];
-        error_log('Debug class_progress data structure: ' . print_r($debug_data, true));
-        error_log('Debug first item type: ' . gettype($debug_data[0]));
-        error_log('Debug first item avg_grade type: ' . gettype($debug_data[0]->avg_grade));
-
         wp_localize_script(
             $this->plugin_name,
             'raAdmin',
@@ -184,6 +179,14 @@ class Reading_Assessment_Admin {
             'reading-assessment-recordings',
             [$this, 'render_recordings_page']
         );
+        add_submenu_page(
+            'reading-assessment',
+            __('Settings', 'reading-assessment'),
+            __('Settings', 'reading-assessment'),
+            'manage_options',
+            'reading-assessment-settings',
+            [$this, 'render_settings_page']
+        );
 
         // Only add repair tool if there are orphaned recordings
         $ra_db = new Reading_Assessment_Database();
@@ -199,12 +202,23 @@ class Reading_Assessment_Admin {
         }
     }
 
-    public function render_repair_page() {
-        include RA_PLUGIN_DIR . 'admin/partials/ra-admin-repair.php';
+    public function render_settings_page() {
+        ?>
+<div class="wrap">
+    <h2><?php _e('Inställningar', 'reading-assessment'); ?></h2>
+    <form method="post" action="options.php">
+        <?php
+                settings_fields('reading-assessment');
+                do_settings_sections('reading-assessment');
+                submit_button();
+                ?>
+    </form>
+</div>
+<?php
     }
 
-    public function render_dashboard_page() {
-        include RA_PLUGIN_DIR . 'admin/partials/ra-admin-dashboard.php';
+    public function render_repair_page() {
+        include RA_PLUGIN_DIR . 'admin/partials/ra-admin-repair.php';
     }
 
     public function render_passages_page() {
@@ -215,8 +229,12 @@ class Reading_Assessment_Admin {
         include RA_PLUGIN_DIR . 'admin/partials/ra-admin-questions.php';
     }
 
-    public function render_results_page() {
-        include RA_PLUGIN_DIR . 'admin/partials/ra-admin-results.php';
+   public function render_results_page() {
+       include RA_PLUGIN_DIR . 'admin/partials/ra-admin-results.php';
+   }
+
+    public function render_statistics_page() {
+        include RA_PLUGIN_DIR . 'admin/partials/ra-admin-statistics.php';
     }
 
     public function render_assignments_page() {
@@ -245,35 +263,17 @@ class Reading_Assessment_Admin {
         $this->verify_admin_nonce();
 
         $passage_id = intval($_POST['passage_id']);
-        error_log('Getting passage: ' . $passage_id);
         $result = $this->db->get_passage($passage_id);
 
         if (!$result) {
-            error_log('Passage not found');
             wp_send_json_error(['message' => __('Passage not found', 'reading-assessment')]);
         }
 
-        error_log('Returning passage data: ' . print_r($result, true));
         wp_send_json_success($result);
     }
 
-    public function ajax_get_passages() {
-        if (!current_user_can('manage_options')) {
-            wp_send_json_error(['message' => __('Permission denied', 'reading-assessment')]);
-        }
-
-        $passages = $this->db->get_all_passages();
-
-        if (!$passages) {
-            wp_send_json_error(['message' => __('No text passages found', 'reading-assessment')]);
-        }
-
-        wp_send_json_success($passages);
-    }
 
     public function ajax_delete_passage() {
-        error_log('=== Start delete_passage AJAX handler ===');
-
         // Clear any previous output
         while (ob_get_level()) {
             ob_end_clean();
@@ -284,9 +284,6 @@ class Reading_Assessment_Admin {
             wp_send_json_error(['message' => __('Permission denied', 'reading-assessment')]);
             exit;
         }
-
-        error_log('POST data: ' . print_r($_POST, true));
-
         // Verify nonce
         if (!isset($_POST['nonce']) || !wp_verify_nonce($_POST['nonce'], 'ra_admin_action')) {
             error_log('Nonce verification failed');
@@ -295,10 +292,7 @@ class Reading_Assessment_Admin {
         }
 
         $passage_id = intval($_POST['passage_id']);
-        error_log('Attempting to delete passage: ' . $passage_id);
-
         $result = $this->db->delete_passage($passage_id);
-        error_log('Delete result: ' . print_r($result, true));
 
         if (is_wp_error($result)) {
             error_log('Delete error: ' . $result->get_error_message());
@@ -306,7 +300,6 @@ class Reading_Assessment_Admin {
             exit;
         }
 
-        error_log('Delete successful');
         wp_send_json_success(['message' => __('Texten har raderats', 'reading-assessment')]);
         exit;
     }
@@ -417,8 +410,6 @@ class Reading_Assessment_Admin {
 
 
     public function ajax_delete_recording() {
-        error_log('=== Start delete_recording AJAX handler ===');
-
         // Clear all previous output and buffers
         while (ob_get_level()) {
             ob_end_clean();
@@ -479,23 +470,36 @@ class Reading_Assessment_Admin {
             $result = $db->delete_recording($recording_id);
 
             if ($result) {
-                error_log('Recording deleted successfully');
                 wp_cache_delete('ra_recordings_count');
                 wp_cache_delete('ra_recordings_page_1');
                 wp_send_json_success(['message' => __('Inspelningen har raderats', 'reading-assessment')]);
             } else {
-                error_log('Failed to delete recording from database');
                 wp_send_json_error(['message' => __('Kunde inte radera inspelningen', 'reading-assessment')]);
             }
         } catch (Exception $e) {
             error_log('Exception in delete_recording: ' . $e->getMessage());
             wp_send_json_error(['message' => $e->getMessage()]);
         }
-
-        error_log('=== End delete_recording AJAX handler ===');
         exit;
     }
 
+    public function ajax_ai_evaluate() {
+        $this->verify_admin_nonce();
+
+        if (!current_user_can('manage_options')) {
+            wp_send_json_error(['message' => __('Permission denied', 'reading-assessment')]);
+        }
+
+        $recording_id = isset($_POST['recording_id']) ? intval($_POST['recording_id']) : 0;
+
+        $ai_evaluator = new Reading_Assessment_AI_Evaluator();
+        $result = $ai_evaluator->process_recording($recording_id);
+
+        wp_send_json_success([
+            'lus_score' => $result['lus_score'],
+            'confidence_score' => $result['confidence_score']
+        ]);
+    }
 
     public function ajax_save_interactions() {
         if (!check_ajax_referer('ra_admin_action', 'nonce', false)) {
@@ -536,16 +540,12 @@ class Reading_Assessment_Admin {
             $period = isset($_REQUEST['period']) ? sanitize_text_field($_REQUEST['period']) : 'month';
             $user_id = isset($_REQUEST['user_id']) ? intval($_REQUEST['user_id']) : 0;
 
-            error_log('Progress data request - Period: ' . $period . ', User ID: ' . $user_id);
-
             // Get progress data
             if ($user_id) {
                 $data = $this->db->get_student_progress_over_time($user_id, $period);
             } else {
                 $data = $this->db->get_class_progress_over_time($period);
             }
-
-            error_log('Progress data response: ' . print_r($data, true));
 
             wp_send_json_success($data);
 
@@ -570,14 +570,14 @@ class Reading_Assessment_Admin {
         // Tracking Section
         add_settings_section(
             'ra_tracking_settings',
-            __('Aktivitetsspårning', 'reading-assessment'),
+            __('Adminlogg', 'reading-assessment'),
             [$this, 'render_tracking_section'],
             'reading-assessment'
         );
 
         add_settings_field(
             'ra_enable_tracking',
-            __('Aktivera aktivitetsspårning', 'reading-assessment'),
+            __('Aktivera adminloggen', 'reading-assessment'),
             [$this, 'render_tracking_field'],
             'reading-assessment',
             'ra_tracking_settings'
@@ -586,14 +586,14 @@ class Reading_Assessment_Admin {
         // AI Section
         add_settings_section(
             'ra_ai_settings',
-            __('AI Inställningar', 'reading-assessment'),
-            [$this, 'render_ai_section'],
+            __('AI aktivering', 'reading-assessment'),
+            null,
             'reading-assessment'
         );
 
         add_settings_field(
             'ra_openai_api_key',
-            __('OpenAI API Nyckel xyz...', 'reading-assessment'),
+            __('OpenAI API-nyckel', 'reading-assessment'),
             [$this, 'render_api_key_field'],
             'reading-assessment',
             'ra_ai_settings'
@@ -608,5 +608,11 @@ class Reading_Assessment_Admin {
         $enabled = get_option('ra_enable_tracking', true);
         echo '<input type="checkbox" name="ra_enable_tracking" value="1" ' . checked(1, $enabled, false) . '/>';
         echo '<p class="description">' . __('Spåra administratörers aktivitet i kontrollpanelen.', 'reading-assessment') . '</p>';
+    }
+
+    public function render_api_key_field() {
+        $api_key = get_option('ra_openai_api_key', '');
+        echo '<input type="password" name="ra_openai_api_key" value="' . esc_attr($api_key) . '" class="regular-text">';
+        echo '<p class="description">' . __('Din OpenAI API-nyckel här', 'reading-assessment') . '</p>';
     }
 }

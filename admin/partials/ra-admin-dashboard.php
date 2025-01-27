@@ -42,6 +42,15 @@ class Reading_Assessment_Dashboard_Admin {
             wp_die(__('You do not have sufficient permissions to access this page.'));
         }
 
+
+        // Add AI API status check
+        $ai_evaluator = new Reading_Assessment_AI_Evaluator();
+        $test_result = $ai_evaluator->test_api_connection();
+        echo '<div class="notice ' . ($test_result ? 'notice-success' : 'notice-error') . '">';
+        echo '<p>AI API Status: ' . ($test_result ? 'Connected' : 'Connection Failed') . '</p>';
+        echo '</div>';
+
+
         // Get passage filter
         $passage_filter = isset($_GET['passage_filter']) ? intval($_GET['passage_filter']) : 0;
         $passage_title = '';
@@ -68,7 +77,7 @@ class Reading_Assessment_Dashboard_Admin {
         // @TODO: Get statistics in class
         error_log('Getting dashboard statistics');
         $stats = $this->db->get_dashboard_statistics();
-        error_log('Stats result: ' . print_r($stats, true));
+        //error_log('Stats result: ' . print_r($stats, true));
 
         // Make variables available to the view
         $variables = [
@@ -92,7 +101,7 @@ class Reading_Assessment_Dashboard_Admin {
 
     public function get_dashboard_data() {
         $progress_data = $this->db->get_class_progress_over_time('month', 12);
-        error_log('Progress data: ' . print_r($progress_data, true));
+        //error_log('Progress data: ' . print_r($progress_data, true));
 
         return array(
             'passage_stats' => $this->db->get_passage_statistics_overview(),

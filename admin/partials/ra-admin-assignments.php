@@ -28,8 +28,6 @@ class Reading_Assessment_Assignments_Admin {
     }
 
     public function render_page() {
-        //error_log('Assignments render_page called');
-
         // Security check
         if (!current_user_can('manage_options')) {
             wp_die(__('You do not have sufficient permissions to access this page.'));
@@ -41,9 +39,6 @@ class Reading_Assessment_Assignments_Admin {
         $users = get_users(['role__not_in' => ['administrator']]);
         $passages = $this->db->get_all_passages();
         $assignments = $this->db->get_all_assignments();
-
-        //error_log('Template path: ' . plugin_dir_path(__FILE__) . 'views/assignments-admin-page.php');
-
         // Include the view template
         require plugin_dir_path(__FILE__) . 'views/assignments-admin-page.php';
     }

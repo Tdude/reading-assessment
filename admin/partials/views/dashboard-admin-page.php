@@ -92,11 +92,14 @@ $upload_dir = wp_upload_dir();
                                 $file_path = $upload_dir['baseurl'] . $recording->audio_file_path;
                                 $check_path = $upload_dir['basedir'] . $recording->audio_file_path;
                                 if (file_exists($check_path)):
+                                    $container_id = 'audio-container-' . $recording->id;
                                 ?>
-                                <audio controls style="max-width: 250px;">
-                                    <source src="<?php echo esc_url($file_path); ?>" type="audio/webm">
-                                    <?php _e('Din webbläsare stöder inte ljuduppspelning.', 'reading-assessment'); ?>
-                                </audio>
+                                <div id="<?php echo esc_attr($container_id); ?>" class="ra-audio-container">
+                                    <button type="button" class="audio-lazy-button"
+                                        onclick="RAUtils.handleAudioLazyLoad('<?php echo esc_attr($container_id); ?>', '<?php echo esc_url($file_path); ?>')">
+                                        <span class="dashicons dashicons-controls-play"></span>
+                                    </button>
+                                </div>
                                 <?php else: ?>
                                 <span class="error"><?php _e('Ljudfil saknas', 'reading-assessment'); ?></span>
                                 <?php endif; ?>

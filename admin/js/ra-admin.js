@@ -996,19 +996,13 @@
         // Check if we're on the dashboard by looking for the dashboard widgets
         const $dashboardWrap = $(".ra-dashboard-widgets");
         const isDashboard = $dashboardWrap.length > 0;
-        /*
-        console.log("Dashboard detection:", {
-          isDashboard: isDashboard,
-          dashboardElements: $dashboardWrap.length,
-        });
-        */
 
         if (isDashboard) {
           this.dashboard.init();
           this.modals.init();
           this.recordings.initDashboard();
-          return; // Exit after dashboard initialization
         }
+
         const currentPage = $(".wrap").data("page");
 
         // Page-specific initializations
@@ -1022,72 +1016,74 @@
         }
 
         // Page-specific initializations
-        switch (currentPage) {
-          case "assignments":
-            if ($(".ra-assignments-list").length) {
-              this.assignments.initActions();
-            }
-            break;
+        if (!isDashboard) {
+          switch (currentPage) {
+            case "assignments":
+              if ($(".ra-assignments-list").length) {
+                this.assignments.initActions();
+              }
+              break;
 
-          case "recordings":
-            if ($(".ra-recordings-list").length) {
-              this.recordings.initActions();
-            }
-            break;
+            case "recordings":
+              if ($(".ra-recordings-list").length) {
+                this.recordings.initActions();
+              }
+              break;
 
-          case "recordings-management": // Specific page for recordings management
-            if ($(".wrap").find(".wp-list-table").length) {
-              this.recordings.initManagement();
-            }
-            break;
+            case "recordings-management": // Specific page for recordings management
+              if ($(".wrap").find(".wp-list-table").length) {
+                this.recordings.initManagement();
+              }
+              break;
 
-          case "passages":
-            if ($(".ra-passages-list").length && !this.passages.initialized) {
-              this.passages.initActions();
-              this.passages.initialized = true;
-            }
-            break;
+            case "passages":
+              if ($(".ra-passages-list").length && !this.passages.initialized) {
+                this.passages.initActions();
+                this.passages.initialized = true;
+              }
+              break;
 
-          case "questions":
-            if ($(".ra-questions-list").length) {
-              this.questions.initActions();
-            }
-            if ($(".ra-questions-table-container").length) {
-              this.questions.initActions();
-              this.questions.load();
-            }
-            break;
+            case "questions":
+              if ($(".ra-questions-list").length) {
+                this.questions.initActions();
+              }
+              if ($(".ra-questions-table-container").length) {
+                this.questions.initActions();
+                this.questions.load();
+              }
+              break;
 
-          case "dashboard":
-            if ($(".ra-dashboard-widgets").length) {
-              this.recordings.initDashboard();
-            }
-            break;
+            case "dashboard":
+              if ($(".ra-dashboard-widgets").length) {
+                this.recordings.initDashboard();
+              }
+              break;
 
-          default:
-            // Fallback initialization for pages without specific data-page attribute
-            // This helps maintain backward compatibility
-            if ($(".wrap").find(".wp-list-table").length) {
-              this.recordings.initManagement();
-            }
-            if ($(".ra-passages-list").length && !this.passages.initialized) {
-              this.passages.initActions();
-              this.passages.initialized = true;
-            }
-            if ($(".ra-questions-list").length) {
-              this.questions.initActions();
-            }
-            if ($(".ra-assignments-list").length) {
-              this.assignments.initActions();
-            }
-            if ($(".ra-recordings-list").length) {
-              this.recordings.initActions();
-            }
-            if ($(".ra-questions-table-container").length) {
-              this.questions.initActions();
-              this.questions.load();
-            }
-            break;
+            default:
+              // Fallback initialization for pages without specific data-page attribute
+              // This helps maintain backward compatibility
+              if ($(".wrap").find(".wp-list-table").length) {
+                this.recordings.initManagement();
+              }
+              if ($(".ra-passages-list").length && !this.passages.initialized) {
+                this.passages.initActions();
+                this.passages.initialized = true;
+              }
+              if ($(".ra-questions-list").length) {
+                this.questions.initActions();
+              }
+              if ($(".ra-assignments-list").length) {
+                this.assignments.initActions();
+              }
+              if ($(".ra-recordings-list").length) {
+                this.recordings.initActions();
+              }
+              if ($(".ra-questions-table-container").length) {
+                this.questions.initActions();
+                this.questions.load();
+              }
+              break;
+          }
         }
 
         // Common initializations that run on all pages
@@ -1105,23 +1101,35 @@
     },
 
     initInstructionToggles: function () {
-      const $toggleButton = $("#toggle-instructions");
-      const $instructionsContent = $("#instructions-content");
+      console.log("Initializing instruction toggles");
 
-      if ($toggleButton.length && $instructionsContent.length) {
+      // First unbind any existing handlers to prevent duplicates
+      $("#toggle-instructions").off("click");
+
+      // Direct binding with namespace to avoid conflicts
+      $("#toggle-instructions").on("click.raInstructions", function (e) {
+        console.log("Toggle button clicked");
+        e.preventDefault();
+
+        const $instructionsContent = $("#instructions-content");
+        console.log("Instructions content found:", $instructionsContent.length);
+
+        $instructionsContent.toggleClass("show");
+
+        // Store state in localStorage
+        const isVisible = $instructionsContent.hasClass("show");
+        localStorage.setItem("instructionsVisible", isVisible);
+        console.log("Visibility state saved:", isVisible);
+      });
+
+      // Set initial state
+      const $instructionsContent = $("#instructions-content");
+      if ($instructionsContent.length) {
         const isVisible =
           localStorage.getItem("instructionsVisible") === "true";
         if (isVisible) {
           $instructionsContent.addClass("show");
         }
-
-        $toggleButton.on("click", function () {
-          $instructionsContent.toggleClass("show");
-          localStorage.setItem(
-            "instructionsVisible",
-            $instructionsContent.hasClass("show")
-          );
-        });
       }
     },
 
@@ -1247,6 +1255,26 @@
         }
         passageIds.add(id);
       });
+    },
+
+    handleAudioLazyLoad: function (containerId, audioUrl) {
+      const container = document.getElementById(containerId);
+      if (!container) return;
+
+      const audio = document.createElement("audio");
+      audio.controls = true;
+      audio.style.width = "100%";
+      audio.style.height = "40px";
+
+      const source = document.createElement("source");
+      source.src = audioUrl;
+      source.type = "audio/webm";
+
+      audio.appendChild(source);
+      container.innerHTML = "";
+      container.appendChild(audio);
+
+      audio.play().catch((err) => console.warn("Autoplay prevented"));
     },
   };
 

@@ -205,6 +205,19 @@ class Reading_Assessment_Activator
                 KEY created_at (created_at),
                 CONSTRAINT fk_interaction_user FOREIGN KEY (user_id)
                     REFERENCES {$wpdb->users} (ID) ON DELETE CASCADE
+            ) {$charset_collate}",
+
+            'ra_ai_evaluations' => "CREATE TABLE IF NOT EXISTS {$wpdb->prefix}ra_ai_evaluations (
+                id bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT,
+                recording_id bigint(20) UNSIGNED NOT NULL,
+                evaluation_data text NOT NULL,
+                lus_score float NOT NULL,
+                confidence_score float NOT NULL,
+                created_at datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                PRIMARY KEY (id),
+                KEY recording_id (recording_id),
+                CONSTRAINT fk_ai_eval_recording FOREIGN KEY (recording_id)
+                    REFERENCES {$wpdb->prefix}ra_recordings (id) ON DELETE CASCADE
             ) {$charset_collate}"
         );
 
