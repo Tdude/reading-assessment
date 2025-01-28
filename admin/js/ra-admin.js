@@ -691,7 +691,6 @@
     },
 
     recordings: {
-      // Shared functionality
       delete: function (recordingId, $button) {
         if (
           RAUtils.confirm("Är du säker på att du vill radera denna inspelning?")
@@ -719,55 +718,171 @@
           );
         }
       },
-
-      evaluateWithAI: function (recordingId) {
+      // AI checking sound files
+      checkProcessingStatus: function (recordingId) {
         RAUtils.ajaxRequest(
-          "ra_admin_ai_evaluate",
+          "ra_admin_check_processing_status",
           { recording_id: recordingId },
           function (response) {
-            // Show AI evaluation results in modal
-            const aiScore = response.lus_score;
-            const confidence = response.confidence_score;
+            const status = response;
+            let statusHtml = '<div class="processing-status">';
 
-            // Update the assessment modal to show AI results
-            $("#ai-evaluation-results").html(`
-                    <div class="ai-score-display">
-                        <p>AI Bedömning: ${aiScore}/20 (${Math.round(
-              confidence * 100
-            )}% säkerhet)</p>
-                    </div>
-                `);
+            statusHtml += `<p>Transcription: ${
+              status.has_transcription ? "✓" : "..."
+            }</p>`;
+            statusHtml += `<p>Evaluation: ${
+              status.has_evaluation ? "✓" : "..."
+            }</p>`;
 
-            // Pre-fill the manual score input with AI's suggestion
-            $("#assessment-score").val(aiScore);
+            if (status.next_cron) {
+              const nextRun = new Date(status.next_cron * 1000);
+              statusHtml += `<p>Next scheduled processing: ${nextRun.toLocaleString()}</p>`;
+            }
 
-            // Show the assessment modal
-            RAUtils.modals.showAssessment(recordingId);
+            if (!status.has_transcription || !status.has_evaluation) {
+              statusHtml += `
+                        <button class="button trigger-processing" data-recording-id="${recordingId}">
+                            Process Now (Testing)
+                        </button>
+                    `;
+            }
+
+            statusHtml += "</div>";
+
+            $("#ai-evaluation-results").html(statusHtml);
           },
           function (errorMessage) {
-            alert(errorMessage || "Kunde inte utföra AI-bedömning");
+            $("#ai-evaluation-results").html(`
+                    <div class="ai-score-display error">
+                        <p>${
+                          errorMessage || "Could not check processing status"
+                        }</p>
+                    </div>
+                `);
           }
         );
+      },
+      // Trigger manual evaluation of AI ($$$)
+      triggerProcessing: function (recordingId) {
+        $("#ai-evaluation-results").html(`
+              <div class="ai-score-display">
+                  <p>Processing...</p>
+                  <div class="spinner"></div>
+              </div>
+          `);
+
+        RAUtils.ajaxRequest(
+          "ra_admin_trigger_processing",
+          { recording_id: recordingId },
+          function (response) {
+            // Start checking status
+            RAUtils.recordings.checkProcessingStatus(recordingId);
+
+            // Schedule periodic status checks
+            const checkInterval = setInterval(() => {
+              RAUtils.recordings.checkProcessingStatus(recordingId);
+            }, 5000); // Check every 5 seconds
+
+            // Store interval ID in data attribute
+            $("#ai-evaluation-results").data("checkInterval", checkInterval);
+
+            // Stop checking after 2 minutes
+            setTimeout(() => {
+              clearInterval(checkInterval);
+            }, 120000);
+          },
+          function (errorMessage) {
+            $("#ai-evaluation-results").html(`
+                      <div class="ai-score-display error">
+                          <p>${errorMessage || "Processing failed"}</p>
+                      </div>
+                  `);
+          }
+        );
+      },
+
+      evaluateWithAI: function (recordingId, retryCount = 0) {
+        const MAX_RETRIES = 5;
+        const RETRY_DELAY = 5000;
+
+        // Start by checking current status
+        this.checkProcessingStatus(recordingId);
+
+        // Add event handler for process button
+        $(document).on("click", ".trigger-processing", function (e) {
+          e.preventDefault();
+          const recordingId = $(this).data("recording-id");
+          RAUtils.recordings.triggerProcessing(recordingId);
+        });
+      },
+
+      showAIEvaluation: function (recordingId) {
+        const $modal = $("#ai-evaluation-modal");
+        const $results = $("#ai-evaluation-results");
+
+        // Clear any existing status check intervals
+        const existingInterval = $results.data("checkInterval");
+        if (existingInterval) {
+          clearInterval(existingInterval);
+        }
+
+        // Clear previous results and show loading
+        $results.html(`
+            <div class="ai-score-display">
+                <p>${raAdmin.strings.aiEvaluating}</p>
+                <div class="spinner"></div>
+            </div>
+        `);
+
+        $modal.show();
+
+        // Start evaluation
+        this.evaluateWithAI(recordingId);
+      },
+
+      initAIEvaluation: function () {
+        // Remove any existing handlers first
+        $(document).off("click.aiEvaluation", ".ai-evaluate-btn");
+
+        // Add new handler
+        $(document).on("click.aiEvaluation", ".ai-evaluate-btn", function (e) {
+          e.preventDefault();
+          const recordingId = $(this).data("recording-id");
+          RAUtils.recordings.showAIEvaluation(recordingId);
+        });
+
+        // Modal close handlers
+        $(document).on(
+          "click.aiEvaluation",
+          ".ra-modal-close, .cancel-btn",
+          function () {
+            $(".ra-modal").hide();
+          }
+        );
+
+        // ESC key handler
+        $(document).on("keydown.aiEvaluation", function (e) {
+          if (e.key === "Escape") {
+            $(".ra-modal").hide();
+          }
+        });
       },
 
       evaluate: function (formData) {
         if (this.isSubmitting) return;
 
         this.isSubmitting = true;
-        const recordingId = formData.recording_id;
-
-        // First get AI evaluation
-        this.evaluateWithAI(recordingId);
 
         RAUtils.ajaxRequest(
           "ra_admin_save_assessment",
           {
-            ...formData,
+            recording_id: formData.recording_id,
+            score: formData.score,
             ai_score: $("#ai-evaluation-results").data("ai-score"),
           },
           function (response) {
             this.isSubmitting = false;
-            $("#assessment-modal").hide();
+            $(".ra-modal").hide();
             location.reload();
           }.bind(this),
           function (errorMessage) {
@@ -843,7 +958,7 @@
               "</span>"
           );
         });
-
+        this.initAIEvaluation();
         this.managementInitialized = true; // Mark as initialized
       },
 
@@ -1015,6 +1130,11 @@
           this.recordings.initDashboard();
         }
 
+        // Initialize AI evaluation if on relevant pages
+        if (isDashboard || currentPage === "recordings-management") {
+          this.recordings.initAIEvaluation();
+        }
+
         // Page-specific initializations
         if (!isDashboard) {
           switch (currentPage) {
@@ -1030,7 +1150,7 @@
               }
               break;
 
-            case "recordings-management": // Specific page for recordings management
+            case "recordings-management":
               if ($(".wrap").find(".wp-list-table").length) {
                 this.recordings.initManagement();
               }

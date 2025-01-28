@@ -39,7 +39,7 @@ $upload_dir = wp_upload_dir();
                 <h2><?php _e('Hur man gör och sånt', 'reading-assessment'); ?></h2>
                 <p><?php _e('Administratören, dvs. du, skapar texter att läsa in för elever i olika grader. Det behövs flera texter i varje poängsegment. Hur många, det är beroende av vad proffsen säger. När vi har tillräckligt med texter, kan vi bjuda in elever och andra att läsa texterna. Gradera dem gärna för vår egen skull så vi inte tilldelar fel svårighetsgrad. Texter kan ju ha samma titel.', 'reading-assessment'); ?>
                 </p>
-                <p><?php _e('Användaren/eleven behöver få ett login som du som admin skapar åt dem. Sedan loggar de in på sidan \"Inspelningsmodul\". Där läser de och spelar in texterna i vilken ordning som helst men se till att ni följer någon slags LUS-standard utan distraktioner. När en elev spelat in en text, kan du som admin gå in och LUSa den.', 'reading-assessment'); ?>
+                <p><?php _e('Användaren/eleven behöver få ett login som du som admin skapar åt dem. Sedan loggar de in på sidan "Inspelningsmodul". Där läser de och spelar in texterna i vilken ordning som helst men se till att ni följer någon slags LUS-standard utan distraktioner. När en elev spelat in en text, kan du som admin gå in och LUSa den.', 'reading-assessment'); ?>
                 </p>
                 <pre>Kortkodde som man säger på Skånska: [reading_assessment]</pre>
             </div>
@@ -109,24 +109,34 @@ $upload_dir = wp_upload_dir();
                             <td><?php echo esc_html(date_i18n(get_option('date_format') . ' ' . get_option('time_format'), strtotime($recording->created_at))); ?>
                             </td>
                             <td class="button-container">
-                                <?php
-                                echo sprintf(
-                                    _n('%d bedömning', '%d bedömningar', $recording->assessment_count, 'reading-assessment'),
-                                    $recording->assessment_count
-                                );
-                                if ($recording->assessment_count > 0) {
-                                    echo ' (' . round($recording->avg_assessment_score, 1) . ')';
-                                }
-                                ?>
-                                <div class="button-group">
-                                    <button type="button" class="button button-primary" style="width: 4rem;"
-                                        data-action="evaluate" data-id="<?php echo esc_attr($recording->id); ?>">
-                                        <?php _e('LUSa', 'reading-assessment'); ?>
+                                <div class="recording-actions">
+                                    <?php if (get_option('ra_enable_ai_evaluation', true)): ?>
+                                    <button class="button ai-evaluate-btn"
+                                        data-recording-id="<?php echo esc_attr($recording->id); ?>">
+                                        <?php _e('AI-bedömning', 'reading-assessment'); ?>
                                     </button>
-                                    <button type="button" class="button button-link-delete" style="width: 4rem;"
-                                        data-action="delete" data-id="<?php echo esc_attr($recording->id); ?>">
-                                        <?php _e('Radera', 'reading-assessment'); ?>
-                                    </button>
+                                    <?php endif; ?>
+                                    <!-- Existing buttons... -->
+
+                                    <?php
+                                    echo sprintf(
+                                        _n('%d bedömning', '%d bedömningar', $recording->assessment_count, 'reading-assessment'),
+                                        $recording->assessment_count
+                                    );
+                                    if ($recording->assessment_count > 0) {
+                                        echo ' (' . round($recording->avg_assessment_score, 1) . ')';
+                                    }
+                                    ?>
+                                    <div class="button-group">
+                                        <button type="button" class="button button-primary" style="width: 4rem;"
+                                            data-action="evaluate" data-id="<?php echo esc_attr($recording->id); ?>">
+                                            <?php _e('LUSa', 'reading-assessment'); ?>
+                                        </button>
+                                        <button type="button" class="button button-link-delete" style="width: 4rem;"
+                                            data-action="delete" data-id="<?php echo esc_attr($recording->id); ?>">
+                                            <?php _e('Radera', 'reading-assessment'); ?>
+                                        </button>
+                                    </div>
                                 </div>
                             </td>
                         </tr>
@@ -531,5 +541,22 @@ $upload_dir = wp_upload_dir();
                     <?php _e('Spara bedömning', 'reading-assessment'); ?>
                 </button>
             </form>
+        </div>
+    </div>
+
+
+    <div id="ai-evaluation-modal" class="ra-modal" style="display:none;">
+        <div class="ra-modal-content">
+            <span class="ra-modal-close">&times;</span>
+            <h2><?php _e('AI-bedömning', 'reading-assessment'); ?></h2>
+            <div id="ai-evaluation-results"></div>
+            <div class="ai-evaluation-actions">
+                <button class="button button-primary save-assessment-btn">
+                    <?php _e('Spara bedömning', 'reading-assessment'); ?>
+                </button>
+                <button class="button cancel-btn">
+                    <?php _e('Avbryt', 'reading-assessment'); ?>
+                </button>
+            </div>
         </div>
     </div>

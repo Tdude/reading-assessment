@@ -29,7 +29,6 @@ class Reading_Assessment_Admin {
     private Reading_Assessment_Results_Admin $results_admin;
 
     public function __construct($plugin_name, $version) {
-
         if (self::$initialized) {
             error_log('Reading_Assessment_Admin already initialized');
             return;
@@ -37,12 +36,17 @@ class Reading_Assessment_Admin {
 
         self::$initialized = true;
 
-
         $this->plugin_name = $plugin_name;
         $this->version = $version;
         $this->db = new Reading_Assessment_Database();
 
         error_log('Main Admin Constructor: Setting up assignments');
+
+        $this->results_admin = new Reading_Assessment_Results_Admin(
+            $this->db,
+            $plugin_name,
+            $version
+        );
 
         $this->dashboard_admin = new Reading_Assessment_Dashboard_Admin(
             $this->db,
@@ -81,7 +85,20 @@ class Reading_Assessment_Admin {
     }
 
     public function enqueue_scripts($hook) {
-        if($hook != 'toplevel_page_reading-assessment') {
+        // List of plugin page hooks
+        $plugin_pages = array(
+            'toplevel_page_reading-assessment',
+            'lasuppskattning_page_reading-assessment-passages',
+            'lasuppskattning_page_reading-assessment-questions',
+            'lasuppskattning_page_reading-assessment-assignments',
+            'lasuppskattning_page_reading-assessment-results',
+            'lasuppskattning_page_reading-assessment-recordings',
+            'lasuppskattning_page_reading-assessment-settings',
+            'lasuppskattning_page_reading-assessment-repair'
+        );
+
+        // Only return if we're NOT on a plugin page
+        if (!in_array($hook, $plugin_pages)) {
             return;
         }
 
@@ -96,7 +113,7 @@ class Reading_Assessment_Admin {
         wp_enqueue_script(
             $this->plugin_name,
             RA_PLUGIN_URL . 'admin/js/ra-admin.js',
-            ['jquery', 'chartjs'],
+            array('jquery'),
             $this->version,
             true
         );
@@ -113,7 +130,9 @@ class Reading_Assessment_Admin {
                 'strings' => array(
                     'editText' => __('Ändra text', 'reading-assessment'),
                     'errorLoading' => __('Fel vid inläsning av text från databasen', 'reading-assessment'),
-                    'confirmDelete' => __('Är du säker på att du vill radera denna inspelning?', 'reading-assessment')
+                    'confirmDelete' => __('Är du säker på att du vill radera denna inspelning?', 'reading-assessment'),
+                    'aiEvaluating' => __('AI utvärderar inspelningen...', 'reading-assessment'),
+                    'aiError' => __('Kunde inte utföra AI-bedömning', 'reading-assessment')
                 ),
                 'progressData' => array_values($dashboard_data['class_progress']) // Ensure it's a numeric array
             )
@@ -208,10 +227,10 @@ class Reading_Assessment_Admin {
     <h2><?php _e('Inställningar', 'reading-assessment'); ?></h2>
     <form method="post" action="options.php">
         <?php
-                settings_fields('reading-assessment');
-                do_settings_sections('reading-assessment');
-                submit_button();
-                ?>
+            settings_fields('reading-assessment');
+            do_settings_sections('reading-assessment');
+            submit_button();
+            ?>
     </form>
 </div>
 <?php
@@ -229,9 +248,20 @@ class Reading_Assessment_Admin {
         include RA_PLUGIN_DIR . 'admin/partials/ra-admin-questions.php';
     }
 
-   public function render_results_page() {
-       include RA_PLUGIN_DIR . 'admin/partials/ra-admin-results.php';
-   }
+    //public function render_results_page() {
+    //    include RA_PLUGIN_DIR . 'admin/partials/ra-admin-results.php';
+    //}
+
+    public function render_results_page() {
+        error_log('Starting render_results_page in class-ra-admin.php');
+
+        if (isset($this->results_admin)) {
+            $this->results_admin->render_page();
+        } else {
+            error_log('Error: Results admin not properly initialized');
+            echo '<div class="wrap"><p>Error: Results admin not properly initialized.</p></div>';
+        }
+    }
 
     public function render_statistics_page() {
         include RA_PLUGIN_DIR . 'admin/partials/ra-admin-statistics.php';
@@ -484,21 +514,53 @@ class Reading_Assessment_Admin {
     }
 
     public function ajax_ai_evaluate() {
-        $this->verify_admin_nonce();
+        if (!check_ajax_referer('ra_admin_action', 'nonce', false)) {
+            wp_send_json_error(['message' => __('Security check failed', 'reading-assessment')]);
+            exit;
+        }
 
         if (!current_user_can('manage_options')) {
             wp_send_json_error(['message' => __('Permission denied', 'reading-assessment')]);
+            exit;
         }
 
         $recording_id = isset($_POST['recording_id']) ? intval($_POST['recording_id']) : 0;
+        if (!$recording_id) {
+            wp_send_json_error(['message' => __('Invalid recording ID', 'reading-assessment')]);
+            exit;
+        }
 
-        $ai_evaluator = new Reading_Assessment_AI_Evaluator();
-        $result = $ai_evaluator->process_recording($recording_id);
+        try {
+            // Create AI evaluator instance
+            $ai_evaluator = new Reading_Assessment_AI_Evaluator();
 
-        wp_send_json_success([
-            'lus_score' => $result['lus_score'],
-            'confidence_score' => $result['confidence_score']
-        ]);
+            // Process the recording
+            $result = $ai_evaluator->process_recording($recording_id);
+
+            if (is_wp_error($result)) {
+                wp_send_json_error(['message' => $result->get_error_message()]);
+                exit;
+            }
+
+            // If we got a "scheduled_transcription" status, send appropriate response
+            if (isset($result['status']) && $result['status'] === 'scheduled_transcription') {
+                wp_send_json_success([
+                    'status' => 'processing',
+                    'message' => __('Transkribering schemalagd. Vänligen försök igen om några minuter.', 'reading-assessment')
+                ]);
+                exit;
+            }
+
+            // Return evaluation results
+            wp_send_json_success([
+                'lus_score' => $result['lus_score'],
+                'confidence_score' => $result['confidence_score']
+            ]);
+
+        } catch (Exception $e) {
+            error_log('AI Evaluation error: ' . $e->getMessage());
+            wp_send_json_error(['message' => __('Ett fel uppstod vid AI-bedömningen', 'reading-assessment')]);
+        }
     }
 
     public function ajax_save_interactions() {
@@ -555,6 +617,77 @@ class Reading_Assessment_Admin {
         }
     }
 
+    public function ajax_check_processing_status() {
+        if (!check_ajax_referer('ra_admin_action', 'nonce', false)) {
+            wp_send_json_error(['message' => __('Security check failed', 'reading-assessment')]);
+        }
+
+        if (!current_user_can('manage_options')) {
+            wp_send_json_error(['message' => __('Permission denied', 'reading-assessment')]);
+        }
+
+        $recording_id = isset($_POST['recording_id']) ? intval($_POST['recording_id']) : 0;
+
+        // Get recording and its evaluation using your db class methods
+        $recording = $this->db->get_recording($recording_id);
+
+        if (!$recording) {
+            wp_send_json_error(['message' => __('Recording not found', 'reading-assessment')]);
+        }
+
+        // Get AI evaluation if it exists
+        $evaluation = $this->db->get_ai_evaluation($recording_id);
+
+        $status = [
+            'has_transcription' => !empty($recording->transcription),
+            'has_evaluation' => !empty($evaluation),
+            'next_cron' => wp_next_scheduled('ra_process_pending_recordings')
+        ];
+
+        if ($evaluation) {
+            $status['lus_score'] = $evaluation->lus_score;
+            $status['confidence_score'] = $evaluation->confidence_score;
+        }
+
+        wp_send_json_success($status);
+    }
+
+    public function ajax_trigger_processing() {
+        if (!check_ajax_referer('ra_admin_action', 'nonce', false)) {
+            wp_send_json_error(['message' => __('Security check failed', 'reading-assessment')]);
+        }
+
+        if (!current_user_can('manage_options')) {
+            wp_send_json_error(['message' => __('Permission denied', 'reading-assessment')]);
+        }
+
+        $recording_id = isset($_POST['recording_id']) ? intval($_POST['recording_id']) : 0;
+
+        // Get the recording first to verify it exists
+        $recording = $this->db->get_recording($recording_id);
+
+        if (!$recording) {
+            wp_send_json_error(['message' => __('Recording not found', 'reading-assessment')]);
+        }
+
+        // Manually trigger the processing
+        $ai_evaluator = new Reading_Assessment_AI_Evaluator();
+
+        // First handle transcription if needed
+        $result = $ai_evaluator->process_transcription($recording_id);
+
+        if ($result) {
+            // If transcription successful, trigger evaluation
+            $eval_result = $ai_evaluator->process_recording($recording_id);
+            if (is_wp_error($eval_result)) {
+                wp_send_json_error(['message' => $eval_result->get_error_message()]);
+            }
+            wp_send_json_success(['message' => __('Processing completed', 'reading-assessment')]);
+        } else {
+            wp_send_json_error(['message' => __('Processing failed', 'reading-assessment')]);
+        }
+    }
+
     public function register_settings() {
         // Tracking Settings
         register_setting('reading-assessment', 'ra_enable_tracking', [
@@ -583,6 +716,7 @@ class Reading_Assessment_Admin {
             'ra_tracking_settings'
         );
 
+
         // AI Section
         add_settings_section(
             'ra_ai_settings',
@@ -598,6 +732,27 @@ class Reading_Assessment_Admin {
             'reading-assessment',
             'ra_ai_settings'
         );
+        // NEW AI Settings
+        register_setting('reading-assessment', 'ra_enable_ai_evaluation', [
+            'type' => 'boolean',
+            'default' => true
+        ]);
+
+        add_settings_section(
+            'ra_ai_settings',
+            __('AI-inställningar', 'reading-assessment'),
+            [$this, 'render_ai_settings_section'],
+            'reading-assessment'
+        );
+
+        add_settings_field(
+            'ra_enable_ai_evaluation',
+            __('Aktivera AI-bedömning', 'reading-assessment'),
+            [$this, 'render_ai_enable_field'],
+            'reading-assessment',
+            'ra_ai_settings'
+        );
+
     }
 
     public function render_tracking_section() {
@@ -614,5 +769,16 @@ class Reading_Assessment_Admin {
         $api_key = get_option('ra_openai_api_key', '');
         echo '<input type="password" name="ra_openai_api_key" value="' . esc_attr($api_key) . '" class="regular-text">';
         echo '<p class="description">' . __('Din OpenAI API-nyckel här', 'reading-assessment') . '</p>';
+    }
+
+    // TESTING AI stuff
+    public function render_ai_settings_section() {
+        echo '<p>' . __('Inställningar för AI-baserad bedömning av läsning.', 'reading-assessment') . '</p>';
+    }
+
+    public function render_ai_enable_field() {
+        $enabled = get_option('ra_enable_ai_evaluation', true);
+        echo '<input type="checkbox" name="ra_enable_ai_evaluation" value="1" ' . checked(1, $enabled, false) . '/>';
+        echo '<p class="description">' . __('Aktivera automatisk AI-bedömning av läsinspelningar.', 'reading-assessment') . '</p>';
     }
 }

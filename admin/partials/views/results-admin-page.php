@@ -6,6 +6,18 @@ if (!defined('WPINC')) {
     die;
 }
 
+
+
+error_log('Starting results-admin-page.php view');
+error_log('Checking required variables:');
+error_log('stats object exists: ' . (isset($stats) ? 'yes' : 'no'));
+error_log('overall_stats exists: ' . (isset($overall_stats) ? 'yes' : 'no'));
+error_log('passage_stats exists: ' . (isset($passage_stats) ? 'yes' : 'no'));
+error_log('question_stats exists: ' . (isset($question_stats) ? 'yes' : 'no'));
+
+
+
+
 $stats = new RA_Statistics();
 
 // Get filter values
@@ -67,9 +79,9 @@ $question_stats = $stats->get_question_statistics($date_limit, $passage_id);
                 <div class="stat-number"><?php echo esc_html($overall_stats['unique_students']); ?></div>
             </div>
             <div class="ra-stat-card">
-                <h3><?php _e('Medelresultat', 'reading-assessment'); ?></h3>
+                <h3><?php _e('Medelresultat (LUSgrad)', 'reading-assessment'); ?></h3>
                 <div class="stat-number">
-                    <?php echo esc_html(number_format($overall_stats['avg_normalized_score'], 1)); ?>%</div>
+                    <?php echo esc_html(number_format($overall_stats['avg_normalized_score'], 1)); ?>£</div>
             </div>
             <div class="ra-stat-card">
                 <h3><?php _e('Frågor besvarade', 'reading-assessment'); ?></h3>
@@ -88,11 +100,20 @@ $question_stats = $stats->get_question_statistics($date_limit, $passage_id);
             <table class="wp-list-table widefat fixed striped">
                 <thead>
                     <tr>
-                        <th><?php _e('Text', 'reading-assessment'); ?></th>
-                        <th><?php _e('Inspelningar', 'reading-assessment'); ?></th>
-                        <th><?php _e('Medelresultat', 'reading-assessment'); ?></th>
-                        <th><?php _e('"Rätt" svar', 'reading-assessment'); ?></th>
-                        <th><?php _e('Tidsåtgång', 'reading-assessment'); ?></th>
+                        <th
+                            title="<?php esc_attr_e('När det blir många texter, kan vi dela upp dem i kategorier eller grader så det blir lättare admin.', 'reading-assessment'); ?>">
+                            <?php _e('Text', 'reading-assessment'); ?></th>
+                        <th title="<?php esc_attr_e('Antal inspelningar för den texten.', 'reading-assessment'); ?>">
+                            <?php _e('Inspelningar', 'reading-assessment'); ?></th>
+                        <th
+                            title="<?php esc_attr_e('Detta är ett heltal om endast en inspelning gjorts. Annars decimal. Vi kan avrunda automatiskt också...', 'reading-assessment'); ?>">
+                            <?php _e('Medelresultat', 'reading-assessment'); ?></th>
+                        <th
+                            title="<?php esc_attr_e('Frågor och svar på texterna är inlagda av admin, specifika för varje text.', 'reading-assessment'); ?>">
+                            <?php _e('Rätt svar', 'reading-assessment'); ?></th>
+                        <th
+                            title="<?php esc_attr_e('Vi behöver inte räkna tid för uppläsning men om vi gör det, syns det här.', 'reading-assessment'); ?>">
+                            <?php _e('Tidsåtgång', 'reading-assessment'); ?></th>
                     </tr>
                 </thead>
                 <tbody>
@@ -115,11 +136,21 @@ $question_stats = $stats->get_question_statistics($date_limit, $passage_id);
             <table class="wp-list-table widefat fixed striped">
                 <thead>
                     <tr>
-                        <th><?php _e('Fråga', 'reading-assessment'); ?></th>
-                        <th><?php _e('Text', 'reading-assessment'); ?></th>
-                        <th><?php _e('Antal inläsningar', 'reading-assessment'); ?></th>
-                        <th><?php _e('Antal rätta svar', 'reading-assessment'); ?></th>
-                        <th><?php _e('Likhet i medel', 'reading-assessment'); ?></th>
+                        <th
+                            title="<?php esc_attr_e('Frågor på texterna är inlagda av admin, specifika för varje text.', 'reading-assessment'); ?>">
+                            <?php _e('Fråga', 'reading-assessment'); ?></th>
+                        <th title="<?php esc_attr_e('Text från admingränssnittet.', 'reading-assessment'); ?>">
+                            <?php _e('Text', 'reading-assessment'); ?></th>
+                        <th
+                            title="<?php esc_attr_e('Vissa elever kanske vill läsa en text flera gånger.', 'reading-assessment'); ?>">
+                            <?php _e('Antal inläsningar', 'reading-assessment'); ?></th>
+                        <th
+                            title="<?php esc_attr_e('Rätt svar på ett kort ord kan visa stora fel om man tex. tillåter att bara 80% av texten är rättstavad.', 'reading-assessment'); ?>">
+                            <?php _e('Antal rätta svar', 'reading-assessment'); ?></th>
+                        <th
+                            title="<?php esc_attr_e('Visar spridning mellan lägsta och högsta värdet. Hög procent, i det här fallet, är mer likt.', 'reading-assessment'); ?>">
+                            <?php _e('Likhet datapunkter', 'reading-assessment'); ?>
+                        </th>
                     </tr>
                 </thead>
                 <tbody>
