@@ -1321,4 +1321,16 @@ class Reading_Assessment_Database {
 
         return $this->db->get_results($query);
     }
+
+    /**
+     * Summary of get_ai_evaluation
+     * @param mixed $recording_id
+     */
+    public function get_ai_evaluation($recording_id) {
+        global $wpdb;
+        return $wpdb->get_row($wpdb->prepare(
+            "SELECT * FROM {$wpdb->prefix}ra_ai_evaluations WHERE recording_id = %d",
+            $recording_id
+        ));
+    }
 }
