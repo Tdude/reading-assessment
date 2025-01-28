@@ -75,6 +75,9 @@ class Reading_Assessment {
         $this->loader->add_action('wp_ajax_ra_admin_save_interactions', $plugin_admin, 'ajax_save_interactions');
         $this->loader->add_action('wp_ajax_ra_admin_get_progress_data', $plugin_admin, 'ajax_get_progress_data');
         $this->loader->add_action('wp_ajax_ra_admin_ai_evaluate', $plugin_admin, 'ajax_ai_evaluate');
+        // Add  AJAX handlers for processing status and triggering
+        $this->loader->add_action('wp_ajax_ra_admin_check_processing_status', $plugin_admin, 'ajax_check_processing_status');
+        $this->loader->add_action('wp_ajax_ra_admin_trigger_processing', $plugin_admin, 'ajax_trigger_processing');
     }
 
     private function define_public_hooks() {
