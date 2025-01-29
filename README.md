@@ -2,13 +2,13 @@
 
 This is a show-text, voice recording, save scores plugin for Wordpress
 
-I uploaded all the files to Claude AI. The text below is from there. It hurts to be human but I suppose I just have to get on with it...
-The question is, did I follow Clude's suggestions? Hey, I'm still hooman so Hell No! Good suggestions though :)
+I uploaded all, well, many of the files to Claude AI to get an evaluation of what this is. The text below is from there. It hurts to be human but I suppose I just have to get on with it...
+The question is, did I follow Jean-Clude's suggestions? Hey, I'm still hooman so Hell No! Good suggestions though :)
 
-## Claude AI 2024
+## Claude AI 2024 evaluation
 Looking at your admin.js code and the associated PHP files, there's definitely an opportunity to create a more generic and maintainable solution.
 
-2025 Copilot:
+Then a 2025 Copilot description:
 # Reading Assessment
 
 **Reading Assessment** is a plugin for recording and evaluating reading comprehension. It allows administrators to assign reading passages to users and evaluate their comprehension through audio recordings and questions.
