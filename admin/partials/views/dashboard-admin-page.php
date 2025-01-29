@@ -76,11 +76,11 @@ $upload_dir = wp_upload_dir();
                 <table class="wp-list-table widefat fixed striped">
                     <thead>
                         <tr>
-                            <th><?php _e('Användare', 'reading-assessment'); ?></th>
-                            <th><?php _e('Inspelning', 'reading-assessment'); ?></th>
-                            <th><?php _e('Längd', 'reading-assessment'); ?></th>
-                            <th><?php _e('Datum', 'reading-assessment'); ?></th>
-                            <th><?php _e('Bedömningar', 'reading-assessment'); ?></th>
+                            <th width="15%"><?php _e('Användare', 'reading-assessment'); ?></th>
+                            <th width="15%"><?php _e('Inspelning', 'reading-assessment'); ?></th>
+                            <th width="10%"><?php _e('Längd', 'reading-assessment'); ?></th>
+                            <th width="20%"><?php _e('Datum', 'reading-assessment'); ?></th>
+                            <th width="40%"><?php _e('Bedömningar', 'reading-assessment'); ?></th>
                         </tr>
                     </thead>
                     <tbody>
@@ -110,13 +110,6 @@ $upload_dir = wp_upload_dir();
                             </td>
                             <td class="button-container">
                                 <div class="recording-actions">
-                                    <?php if (get_option('ra_enable_ai_evaluation', true)): ?>
-                                    <button class="button ai-evaluate-btn"
-                                        data-recording-id="<?php echo esc_attr($recording->id); ?>">
-                                        <?php _e('AI-bedömning', 'reading-assessment'); ?>
-                                    </button>
-                                    <?php endif; ?>
-                                    <!-- Existing buttons... -->
 
                                     <?php
                                     echo sprintf(
@@ -127,16 +120,23 @@ $upload_dir = wp_upload_dir();
                                         echo ' (' . round($recording->avg_assessment_score, 1) . ')';
                                     }
                                     ?>
-                                    <div class="button-group">
-                                        <button type="button" class="button button-primary" style="width: 4rem;"
-                                            data-action="evaluate" data-id="<?php echo esc_attr($recording->id); ?>">
+                                    <div class="button-group wp-ra-button-group">
+                                        <?php if (get_option('ra_enable_ai_evaluation', true)): ?>
+                                        <button class="button button-secondary ai-evaluate-btn"
+                                            data-recording-id="<?php echo esc_attr($recording->id); ?>">
+                                            <?php _e('AI-bedömning', 'reading-assessment'); ?>
+                                        </button>
+                                        <?php endif; ?>
+                                        <button type="button" class="button button-primary" data-action="evaluate"
+                                            data-id="<?php echo esc_attr($recording->id); ?>">
                                             <?php _e('LUSa', 'reading-assessment'); ?>
                                         </button>
-                                        <button type="button" class="button button-link-delete" style="width: 4rem;"
-                                            data-action="delete" data-id="<?php echo esc_attr($recording->id); ?>">
+                                        <button type="button" class="button button-link-delete" data-action="delete"
+                                            data-id="<?php echo esc_attr($recording->id); ?>">
                                             <?php _e('Radera', 'reading-assessment'); ?>
                                         </button>
                                     </div>
+
                                 </div>
                             </td>
                         </tr>
@@ -514,8 +514,8 @@ $upload_dir = wp_upload_dir();
             <span class="ra-modal-close">&times;</span>
             <h3><?php _e('Lägg till bedömning', 'reading-assessment'); ?></h3>
 
-            <!-- AI Evaluation Results -->
-            <div id="ai-evaluation-results" class="ai-evaluation-section">
+            <!-- AI Evaluation results in assessments modal -->
+            <div id="assessment-ai-results" class="ai-evaluation-section">
                 <div class="ai-loading" style="display: none;">
                     <?php _e('AI analyserar inspelningen...', 'reading-assessment'); ?>
                 </div>
@@ -544,19 +544,14 @@ $upload_dir = wp_upload_dir();
         </div>
     </div>
 
-
-    <div id="ai-evaluation-modal" class="ra-modal" style="display:none;">
+    <!-- AI Evaluation in freestanding modal -->
+    <div id="ai-evaluation-modal" class="ra-modal" style="display: none;">
         <div class="ra-modal-content">
-            <span class="ra-modal-close">&times;</span>
-            <h2><?php _e('AI-bedömning', 'reading-assessment'); ?></h2>
-            <div id="ai-evaluation-results"></div>
-            <div class="ai-evaluation-actions">
-                <button class="button button-primary save-assessment-btn">
-                    <?php _e('Spara bedömning', 'reading-assessment'); ?>
-                </button>
-                <button class="button cancel-btn">
-                    <?php _e('Avbryt', 'reading-assessment'); ?>
-                </button>
+            <span class="ra-modal-close">×</span>
+            <div class="ai-eval-header">
+                <h2>AI Utvärdering</h2>
             </div>
+            <div id="ai-evaluation-results"></div>
+            <div class="ai-eval-details"></div>
         </div>
     </div>
