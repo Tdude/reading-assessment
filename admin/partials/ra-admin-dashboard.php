@@ -1,5 +1,7 @@
 <?php
-// admin/partials/ra-admin-dashboard.php
+/**
+ * admin/partials/ra-admin-dashboard.php
+ */
 if (!defined('WPINC')) {
     die;
 }
@@ -41,15 +43,6 @@ class Reading_Assessment_Dashboard_Admin {
         if (!current_user_can('manage_options')) {
             wp_die(__('You do not have sufficient permissions to access this page.'));
         }
-
-
-        // Add AI API status check
-        $ai_evaluator = new Reading_Assessment_AI_Evaluator();
-        $test_result = $ai_evaluator->test_api_connection();
-        echo '<div class="notice ' . ($test_result ? 'notice-success' : 'notice-error') . '">';
-        echo '<p>AI API Status: ' . ($test_result ? 'Connected' : 'Connection Failed') . '</p>';
-        echo '</div>';
-
 
         // Get passage filter
         $passage_filter = isset($_GET['passage_filter']) ? intval($_GET['passage_filter']) : 0;
