@@ -1323,14 +1323,63 @@ class Reading_Assessment_Database {
     }
 
     /**
-     * Summary of get_ai_evaluation
-     * @param mixed $recording_id
+     * Summary of update_ai_evaluation_meta
+     * @param mixed $evaluation_id
+     * @param mixed $meta_data
      */
-    public function get_ai_evaluation($recording_id) {
+    public function update_ai_evaluation_meta($evaluation_id, $meta_data) {
+        // Add to existing evaluation_data JSON
         global $wpdb;
-        return $wpdb->get_row($wpdb->prepare(
-            "SELECT * FROM {$wpdb->prefix}ra_ai_evaluations WHERE recording_id = %d",
-            $recording_id
+        $current = $this->get_ai_evaluation($evaluation_id);
+        $updated_data = json_decode($current->evaluation_data, true);
+        $updated_data['meta'] = $meta_data;
+
+        return $wpdb->update(
+            $wpdb->prefix . 'ra_ai_evaluations',
+            ['evaluation_data' => json_encode($updated_data)],
+            ['id' => $evaluation_id],
+            ['%s'],
+            ['%d']
+        );
+    }
+
+    public function get_ai_evaluation($evaluation_id) {
+        error_log('Getting AI evaluation: ' . $evaluation_id);
+        $result = $this->db->get_row($this->db->prepare(
+            "SELECT * FROM {$this->db->prefix}ra_ai_evaluations WHERE id = %d",
+            $evaluation_id
         ));
+        error_log('Evaluation found: ' . ($result ? 'yes' : 'no'));
+        return $result;
+    }
+
+
+    public function get_ai_evaluations($per_page = 20, $current_page = 1) {
+        error_log('Getting AI evaluations list');
+        $offset = ($current_page - 1) * $per_page;
+
+        // Add r.transcription to SELECT
+        $query = $this->db->prepare(
+            "SELECT e.*, r.user_id, r.transcription, p.title as passage_title
+             FROM {$this->db->prefix}ra_ai_evaluations e
+             JOIN {$this->db->prefix}ra_recordings r ON e.recording_id = r.id
+             JOIN {$this->db->prefix}ra_passages p ON r.passage_id = p.id
+             ORDER BY e.created_at DESC
+             LIMIT %d OFFSET %d",
+            $per_page,
+            $offset
+        );
+
+        error_log('Running query: ' . $query);
+        $results = $this->db->get_results($query);
+        error_log('Found evaluations: ' . count($results));
+
+        return $results;
+    }
+
+    public function get_ai_evaluations_count() {
+        return (int)$this->db->get_var(
+            "SELECT COUNT(*) FROM {$this->db->prefix}ra_ai_evaluations"
+        );
     }
 }

@@ -27,13 +27,23 @@ class Reading_Assessment_Activator
     {
         global $wpdb;
         $current_db_version = get_option('ra_db_version', '1.0');
+        // Helper function for column existence
+        $column_exists = function ($table, $column) use ($wpdb) {
+            return $wpdb->get_var($wpdb->prepare(
+                "SELECT COLUMN_NAME
+                FROM INFORMATION_SCHEMA.COLUMNS
+                WHERE TABLE_SCHEMA = %s
+                AND TABLE_NAME = %s
+                AND COLUMN_NAME = %s",
+                DB_NAME, $table, $column
+            ));
+        };
 
         // Upgrade to 1.1 - Add difficulty_level
         if (version_compare($current_db_version, '1.1', '<')) {
-            $row = $wpdb->get_results("SHOW COLUMNS FROM {$wpdb->prefix}ra_passages LIKE 'difficulty_level'");
-            if (empty($row)) {
+            if (!$column_exists("{$wpdb->prefix}ra_passages", 'difficulty_level')) {
                 $wpdb->query("ALTER TABLE {$wpdb->prefix}ra_passages
-                             ADD COLUMN difficulty_level int(11) DEFAULT 1");
+                            ADD COLUMN difficulty_level int(11) DEFAULT 1");
 
                 if ($wpdb->last_error) {
                     error_log("Failed to add difficulty_level column: " . $wpdb->last_error);
@@ -43,10 +53,9 @@ class Reading_Assessment_Activator
             update_option('ra_db_version', '1.1');
         }
 
-        // Upgrade to 1.2 - Add assignments table
+        // Upgrade to 1.2 - Create assignments table
         if (version_compare($current_db_version, '1.2', '<')) {
             $charset_collate = $wpdb->get_charset_collate();
-
             $sql = "CREATE TABLE IF NOT EXISTS {$wpdb->prefix}ra_assignments (
                 id bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT,
                 user_id bigint(20) UNSIGNED NOT NULL,
@@ -69,13 +78,15 @@ class Reading_Assessment_Activator
                 error_log("Failed to create assignments table: " . $wpdb->last_error);
                 return false;
             }
-
             update_option('ra_db_version', '1.2');
         }
 
         // Upgrade to 1.3 - Add admin interactions table columns
         if (version_compare($current_db_version, '1.3', '<')) {
             $table_name = $wpdb->prefix . 'ra_admin_interactions';
+
+            // Log upgrade process
+            //error_log("Starting upgrade to version 1.3...");
 
             // Check if columns exist
             $row = $wpdb->get_results("SHOW COLUMNS FROM {$table_name} LIKE 'clicks'");
@@ -88,12 +99,53 @@ class Reading_Assessment_Activator
                 if ($wpdb->last_error) {
                     error_log("Failed to add interaction columns: " . $wpdb->last_error);
                     return false;
+                } else {
+                    error_log("Added clicks, active_time, and idle_time columns to {$table_name}.");
                 }
+            } else {
+                error_log("No changes needed for version 1.3 - required columns already exist.");
             }
             update_option('ra_db_version', '1.3');
+            error_log("Upgrade to version 1.3 completed.");
         }
-    }
 
+        // Upgrade to 1.4 - Add transcription column
+        if (version_compare($current_db_version, '1.4', '<')) {
+            $table_name = $wpdb->prefix . 'ra_recordings';
+
+            // Log upgrade process
+            error_log("Starting upgrade to version 1.4...");
+
+            // Add transcription column if it doesn't exist
+            $column_exists = $wpdb->get_results($wpdb->prepare(
+                "SELECT COLUMN_NAME
+                FROM INFORMATION_SCHEMA.COLUMNS
+                WHERE TABLE_SCHEMA = %s
+                AND TABLE_NAME = %s
+                AND COLUMN_NAME = 'transcription'",
+                DB_NAME,
+                $table_name
+            ));
+
+            if (empty($column_exists)) {
+                $wpdb->query("ALTER TABLE {$table_name}
+                    ADD COLUMN transcription TEXT NULL DEFAULT NULL
+                    AFTER audio_file_path");
+
+                if ($wpdb->last_error) {
+                    error_log("Failed to add transcription column: " . $wpdb->last_error);
+                    return false;
+                } else {
+                    error_log("Added transcription column to {$table_name}.");
+                }
+            } else {
+                error_log("No changes needed for version 1.4 - transcription column already exists.");
+            }
+            update_option('ra_db_version', '1.4');
+            error_log("Upgrade to version 1.4 completed.");
+        }
+
+    }
 
     /**
      * Create all required database tables
@@ -125,6 +177,7 @@ class Reading_Assessment_Activator
                 user_id bigint(20) UNSIGNED NOT NULL,
                 passage_id bigint(20) UNSIGNED NOT NULL,
                 audio_file_path varchar(255) NOT NULL,
+                transcription TEXT NULL DEFAULT NULL,
                 duration int(11) NOT NULL,
                 created_at datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
                 PRIMARY KEY (id),
@@ -218,7 +271,26 @@ class Reading_Assessment_Activator
                 KEY recording_id (recording_id),
                 CONSTRAINT fk_ai_eval_recording FOREIGN KEY (recording_id)
                     REFERENCES {$wpdb->prefix}ra_recordings (id) ON DELETE CASCADE
+            ) {$charset_collate}",
+
+            // @TODO: verify this table is added/removed and works.
+            // No methods added so far! They should operate in the PUBLIC part of the site, but behind login.
+            'ra_audio_responses' => "CREATE TABLE IF NOT EXISTS {$wpdb->prefix}ra_audio_responses (
+                id bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT,
+                recording_id bigint(20) UNSIGNED NOT NULL,
+                question_id bigint(20) UNSIGNED NOT NULL,
+                audio_file_path varchar(255) NOT NULL,
+                duration int(11) NOT NULL,
+                created_at datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                PRIMARY KEY (id),
+                KEY recording_id (recording_id),
+                KEY question_id (question_id),
+                CONSTRAINT fk_audio_response_recording FOREIGN KEY (recording_id)
+                    REFERENCES {$wpdb->prefix}ra_recordings (id) ON DELETE CASCADE,
+                CONSTRAINT fk_audio_response_question FOREIGN KEY (question_id)
+                    REFERENCES {$wpdb->prefix}ra_questions (id) ON DELETE CASCADE
             ) {$charset_collate}"
+
         );
 
         // Create tables

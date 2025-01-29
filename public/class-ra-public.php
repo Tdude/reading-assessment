@@ -93,7 +93,7 @@ class Reading_Assessment_Public {
      * @return void
      */
     public function schedule_recording_processing($recording_id) {
-        wp_schedule_single_event(time(), 'ra_process_transcription', array($recording_id));
+        wp_schedule_single_event(time(), 'ra_process_recording', array($recording_id));
     }
 
     /**
@@ -337,7 +337,6 @@ class Reading_Assessment_Public {
     }
 
     public function ajax_get_questions() {
-        // error_log('===== START ajax_get_questions =====');
         // error_log('POST data: ' . print_r($_POST, true));
 
         // First verify nonce

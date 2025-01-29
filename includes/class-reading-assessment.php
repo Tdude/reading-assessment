@@ -35,6 +35,7 @@ class Reading_Assessment {
         require_once RA_PLUGIN_DIR . 'includes/class-ra-ai-evaluator.php';
         require_once RA_PLUGIN_DIR . 'includes/class-ra-database.php';
 
+
         $this->loader = new Reading_Assessment_Loader();
     }
 
@@ -119,7 +120,7 @@ class Reading_Assessment {
 
     private function define_cron_hooks() {
         $ai_evaluator = new Reading_Assessment_AI_Evaluator();
-        $this->loader->add_action('ra_process_transcription', $ai_evaluator, 'process_transcription');
-        $this->loader->add_action('ra_process_evaluation', $ai_evaluator, 'process_recording');
+        //$this->loader->add_action('ra_process_transcription', $ai_evaluator, 'process_transcription');
+        $this->loader->add_action('ra_process_recording', $ai_evaluator, 'process_recording');
     }
 }
