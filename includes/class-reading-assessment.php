@@ -25,6 +25,7 @@ class Reading_Assessment {
     }
 
     private function load_dependencies() {
+        require_once RA_PLUGIN_DIR . 'includes/class-ra-security.php';
         require_once RA_PLUGIN_DIR . 'includes/class-ra-error-handler.php';
         require_once RA_PLUGIN_DIR . 'includes/class-ra-loader.php';
         require_once RA_PLUGIN_DIR . 'includes/class-ra-i18n.php';
