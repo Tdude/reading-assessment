@@ -255,87 +255,83 @@ class Reading_Assessment_Public {
 
     }
 
+
+    /**
+     * AJAX handler for saving recordings with security improvements
+     */
     public function ajax_save_recording() {
-       // error_log('Starting ajax_save_recording');
-       // error_log('POST data: ' . print_r($_POST, true));
-       // error_log('FILES data: ' . print_r($_FILES, true));
+        $security = Reading_Assessment_Security::get_instance();
 
-        if (!is_user_logged_in()) {
-            wp_send_json_error(['message' => 'Användaren är inte inloggad. Har du fått ett login?']);
-            return;
-        }
+        try {
+            // Validate request
+            $security->validate_ajax_request(Reading_Assessment_Security::NONCE_PUBLIC_RECORDING);
+            if (!$security->can_record()) {
+                throw new Exception(__('Permission denied', 'reading-assessment'));
+            }
 
-        if (!isset($_FILES['audio_file'])) {
-            wp_send_json_error(['message' => 'Kunde inte ta emot ljudfil.']);
-            return;
-        }
+            // Validate passage
+            $passage_id = $security->validate_passage_id($_POST['passage_id']);
 
-        // More logging
-        // error_log('POST data: ' . print_r($_POST, true));
+            // Validate file
+            if (!isset($_FILES['audio_file'])) {
+                throw new Exception(__('No audio file received', 'reading-assessment'));
+            }
+            $security->validate_audio_file($_FILES['audio_file']);
 
-        // Get the passage_id from the request
-        $passage_id = isset($_POST['passage_id']) ? intval($_POST['passage_id']) : 0;
-        // error_log('Passage ID from request: ' . $passage_id);
+            // Generate secure filename and path
+            $upload_dir = wp_upload_dir();
+            $year = date('Y');
+            $month = date('m');
+            $filename = $security->generate_secure_filename();
+            $target_dir = $upload_dir['basedir'] . '/reading-assessment/' . $year . '/' . $month;
 
-        // Set up directory structure
-        $upload_dir = wp_upload_dir();
-        $year = date('Y');
-        $month = date('m');
-        $target_dir = $upload_dir['basedir'] . '/reading-assessment/' . $year . '/' . $month;
+            // Ensure directory exists with proper permissions
+            if (!wp_mkdir_p($target_dir)) {
+                throw new Exception(__('Failed to create upload directory', 'reading-assessment'));
+            }
 
-        // Create directories if they don't exist
-        if (!file_exists($target_dir)) {
-            wp_mkdir_p($target_dir);
-        }
+            $file_path = $target_dir . '/' . $filename;
+            if (!move_uploaded_file($_FILES['audio_file']['tmp_name'], $file_path)) {
+                throw new Exception(__('Failed to save file', 'reading-assessment'));
+            }
 
-        // Generate unique filename
-        $file_name = 'recording_' . time() . '.webm';
-        $file_path = $target_dir . '/' . $file_name;
-
-        // Store relative path for database
-        $relative_path = '/reading-assessment/' . $year . '/' . $month . '/' . $file_name;
-
-        if (move_uploaded_file($_FILES['audio_file']['tmp_name'], $file_path)) {
+            // Set proper file permissions
             chmod($file_path, 0644);
 
-            // Save to database with passage_id
+            // Save to database using prepared statement
             global $wpdb;
             $result = $wpdb->insert(
                 $wpdb->prefix . 'ra_recordings',
-                array(
+                [
                     'user_id' => get_current_user_id(),
-                    'passage_id' => $passage_id,  // Make sure this gets saved
-                    'audio_file_path' => $relative_path,
-                    'duration' => isset($_POST['duration']) ? floatval($_POST['duration']) : 0,
+                    'passage_id' => $passage_id,
+                    'audio_file_path' => '/reading-assessment/' . $year . '/' . $month . '/' . $filename,
+                    'duration' => floatval($_POST['duration']),
                     'created_at' => current_time('mysql')
-                ),
-                array('%d', '%d', '%s', '%d', '%s')
+                ],
+                ['%d', '%d', '%s', '%f', '%s']
             );
 
             if ($result === false) {
-                error_log('Database insert failed: ' . $wpdb->last_error);
-                wp_send_json_error([
-                    'message' => 'Kunde inte spara den inspelade filen. Prova igen eller kontakta administratören!',
-                    'error' => $wpdb->last_error
-                ]);
-                return;
+                throw new Exception(__('Database error', 'reading-assessment'));
             }
 
             wp_send_json_success([
-                'message' => 'File saved successfully',
-                'file_path' => $relative_path,
-                'recording_id' => $wpdb->insert_id,
-                'passage_id' => $passage_id,  // Return this in response
-                'url' => $upload_dir['baseurl'] . $relative_path
+                'message' => __('Recording saved successfully', 'reading-assessment'),
+                'recording_id' => $wpdb->insert_id
             ]);
-        } else {
+
+        } catch (Exception $e) {
             wp_send_json_error([
-                'message' => 'Failed to save file',
-                'error' => error_get_last()
+                'message' => $e->getMessage(),
+                'code' => 'recording_error'
             ]);
         }
     }
 
+    /**
+     * AJAX handler for saving recordings with security improvements
+     */
     public function ajax_get_questions() {
         // error_log('POST data: ' . print_r($_POST, true));
 
@@ -369,102 +365,77 @@ class Reading_Assessment_Public {
         // error_log('===== END ajax_get_questions =====');
     }
 
+
+    /**
+     * AJAX handler for submitting answers with security improvements
+     */
     public function ajax_submit_answers() {
+        $security = Reading_Assessment_Security::get_instance();
 
         try {
-            // Verify nonce
-            if (!check_ajax_referer('ra_public_nonce', 'nonce', false)) {
-                // error_log('Nonce verification failed');
-                wp_send_json_error(['message' => 'Säkerhetskontrollen ogiltig tyvärr.']);
-                return;
-            }
+            // Validate request
+            $security->validate_ajax_request(Reading_Assessment_Security::NONCE_PUBLIC_ANSWERS);
 
-            // Get and validate recording ID
-            $recording_id = isset($_POST['recording_id']) ? absint($_POST['recording_id']) : 0;
+            // Validate recording ownership
+            $recording_id = absint($_POST['recording_id']);
+            $security->validate_recording_ownership($recording_id);
 
-            if (!$recording_id) {
-                wp_send_json_error(['message' => 'Ogiltigt inspelnings ID. Det betyder att det uppstod ett fel vid uppladdningen. Prova igen.']);
-                return;
-            }
-
-            // Get and validate answers
+            // Sanitize and validate answers
             $answers_json = isset($_POST['answers']) ? stripslashes($_POST['answers']) : '';
             $answers = json_decode($answers_json, true);
+            $sanitized_answers = $security->sanitize_answers($answers);
 
-            if (!is_array($answers) || empty($answers)) {
-                wp_send_json_error(['message' => 'Ogiltigt svarsformat.']);
-                return;
+            if (empty($sanitized_answers)) {
+                throw new Exception(__('No valid answers provided', 'reading-assessment'));
             }
 
-            // Verify recording
-            $db = new Reading_Assessment_Database();
-            $recording = $db->get_recording($recording_id);
-            $current_user_id = get_current_user_id();
-
-            if (!$recording) {
-                wp_send_json_error(['message' => 'Inspelningen kunde inte hittas.']);
-                return;
-            }
-
-            if ($recording->user_id != $current_user_id) {
-                // error_log('Recording user ID mismatch. Recording user: ' . $recording->user_id . ', Current user: ' . $current_user_id);
-                wp_send_json_error(['message' => 'Denna användare nekas tyvärr. Logga ut och in igen!']);
-                return;
-            }
-
-            // Save answers
+            // Save answers using prepared statements
+            global $wpdb;
             $saved_count = 0;
             $errors = [];
 
-            foreach ($answers as $question_id => $answer_text) {
-                try {
-                    $result = $db->save_response([
+            foreach ($sanitized_answers as $question_id => $answer) {
+                $result = $wpdb->insert(
+                    $wpdb->prefix . 'ra_responses',
+                    [
                         'recording_id' => $recording_id,
-                        'question_id' => absint($question_id),
-                        'user_answer' => sanitize_text_field($answer_text)
-                    ]);
+                        'question_id' => $question_id,
+                        'user_answer' => $answer,
+                        'created_at' => current_time('mysql')
+                    ],
+                    ['%d', '%d', '%s', '%s']
+                );
 
-                    if ($result) {
-                        $saved_count++;
-                    } else {
-                        $errors[] = "Kunde inte spara svaret till frågan: $question_id";
-                    }
-                } catch (Exception $e) {
-                    // error_log("Error saving answer for question $question_id: " . $e->getMessage());
-                    $errors[] = "Error with question $question_id: " . $e->getMessage();
+                if ($result) {
+                    $saved_count++;
+                } else {
+                    $errors[] = sprintf(__('Failed to save answer for question %d', 'reading-assessment'), $question_id);
                 }
             }
 
             if ($saved_count > 0) {
-                $message = sprintf(
-                    _n(
-                        'Sparade %d svar',
-                        'Sparade %d svar',
-                        $saved_count,
-                        'reading-assessment'
-                    ),
-                    $saved_count
-                );
-
-                if (!empty($errors)) {
-                    $message .= ' (' . count($errors) . ' misslyckades)';
-                }
-
                 wp_send_json_success([
-                    'message' => $message,
+                    'message' => sprintf(
+                        _n(
+                            'Saved %d answer',
+                            'Saved %d answers',
+                            $saved_count,
+                            'reading-assessment'
+                        ),
+                        $saved_count
+                    ),
                     'saved_count' => $saved_count,
                     'errors' => $errors
                 ]);
             } else {
-                wp_send_json_error([
-                    'message' => 'Kunde inte spara några svar',
-                    'errors' => $errors
-                ]);
+                throw new Exception(__('Failed to save answers', 'reading-assessment'));
             }
 
         } catch (Exception $e) {
-            // error_log('Error in ajax_submit_answers: ' . $e->getMessage());
-            wp_send_json_error(['message' => 'Det uppstod ett serverfel.']);
+            wp_send_json_error([
+                'message' => $e->getMessage(),
+                'code' => 'answer_submission_error'
+            ]);
         }
     }
 }
