@@ -75,19 +75,6 @@ class Reading_Assessment_Questions_Admin {
         }
     }
 
-    public function ajax_get_question() {
-        check_ajax_referer('ra_admin_action', 'nonce');
-
-        $question_id = isset($_POST['question_id']) ? intval($_POST['question_id']) : 0;
-        $question = $this->db->get_question($question_id);
-
-        if (!$question) {
-            wp_send_json_error(array('message' => __('Frågan kunde inte hittas.', 'reading-assessment')));
-        }
-
-        wp_send_json_success($question);
-    }
-
     public function ajax_get_questions() {
         check_ajax_referer('ra_admin_action', 'nonce');
 
