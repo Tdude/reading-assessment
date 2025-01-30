@@ -32,7 +32,7 @@ $evaluation = $recording_id ? $stats->get_evaluation_data($recording_id) : null;
 $date_limit = $date_range > 0 ? date('Y-m-d', strtotime("-$date_range days")) : '';
 
 // Get statistics
-$overall_stats = $stats->get_overall_statistics($date_limit, $passage_id);
+$overall_stats = $stats->get_filtered_statistics($date_limit, $passage_id);
 $passage_stats = $stats->get_passage_statistics($date_limit);
 $question_stats = $stats->get_question_statistics($date_limit, $passage_id);
 ?>
@@ -129,7 +129,6 @@ $question_stats = $stats->get_question_statistics($date_limit, $passage_id);
                 </tbody>
             </table>
         </div>
-
         <!-- Question Analysis -->
         <div class="ra-stats-section">
             <h2><?php _e('Frågeanalys', 'reading-assessment'); ?></h2>
@@ -138,15 +137,22 @@ $question_stats = $stats->get_question_statistics($date_limit, $passage_id);
                     <tr>
                         <th
                             title="<?php esc_attr_e('Frågor på texterna är inlagda av admin, specifika för varje text.', 'reading-assessment'); ?>">
-                            <?php _e('Fråga', 'reading-assessment'); ?></th>
+                            <?php _e('Fråga', 'reading-assessment'); ?>
+                        </th>
                         <th title="<?php esc_attr_e('Text från admingränssnittet.', 'reading-assessment'); ?>">
-                            <?php _e('Text', 'reading-assessment'); ?></th>
+                            <?php _e('Text', 'reading-assessment'); ?>
+                        </th>
+                        <th title="<?php esc_attr_e('Rätt svar på frågan.', 'reading-assessment'); ?>">
+                            <?php _e('Rätt svar', 'reading-assessment'); ?>
+                        </th>
                         <th
                             title="<?php esc_attr_e('Vissa elever kanske vill läsa en text flera gånger.', 'reading-assessment'); ?>">
-                            <?php _e('Antal inläsningar', 'reading-assessment'); ?></th>
+                            <?php _e('Antal inläsningar', 'reading-assessment'); ?>
+                        </th>
                         <th
                             title="<?php esc_attr_e('Rätt svar på ett kort ord kan visa stora fel om man tex. tillåter att bara 80% av texten är rättstavad.', 'reading-assessment'); ?>">
-                            <?php _e('Antal rätta svar', 'reading-assessment'); ?></th>
+                            <?php _e('Antal rätta svar', 'reading-assessment'); ?>
+                        </th>
                         <th
                             title="<?php esc_attr_e('Visar spridning mellan lägsta och högsta värdet. Hög procent, i det här fallet, är mer likt.', 'reading-assessment'); ?>">
                             <?php _e('Likhet datapunkter', 'reading-assessment'); ?>
@@ -158,6 +164,7 @@ $question_stats = $stats->get_question_statistics($date_limit, $passage_id);
                     <tr>
                         <td><?php echo esc_html($question['question_text']); ?></td>
                         <td><?php echo esc_html($question['passage_title']); ?></td>
+                        <td><?php echo esc_html($question['correct_answer']); ?></td>
                         <td><?php echo esc_html($question['times_answered']); ?></td>
                         <td><?php echo esc_html(number_format($question['correct_rate'] ?? 0, 1)); ?>%</td>
                         <td><?php echo esc_html(number_format($question['avg_similarity'] ?? 0, 1)); ?>%</td>

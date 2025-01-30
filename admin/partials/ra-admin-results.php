@@ -49,7 +49,7 @@ class Reading_Assessment_Results_Admin {
         $date_limit = $date_range > 0 ? date('Y-m-d', strtotime("-$date_range days")) : '';
 
         // Get statistics
-        $overall_stats = $this->stats->get_overall_statistics($date_limit, $passage_id);
+        $overall_stats = $this->stats->get_filtered_statistics($date_limit, $passage_id);
         $passage_stats = $this->stats->get_passage_statistics($date_limit);
         $question_stats = $this->stats->get_question_statistics($date_limit, $passage_id);
 

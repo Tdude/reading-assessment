@@ -21,7 +21,7 @@ class RA_Statistics {
     /**
      * Get overall statistics including assessment metrics
      */
-    public function get_overall_statistics($date_limit = '', $passage_id = 0) {
+    public function get_filtered_statistics($date_limit = '', $passage_id = 0) {
         $where = array('1=1');
         $where_args = array();
 
@@ -37,20 +37,21 @@ class RA_Statistics {
 
         $where_clause = $where ? 'WHERE ' . implode(' AND ', $where) : '';
 
+        $query = "SELECT
+            COUNT(DISTINCT r.id) as total_recordings,
+            (SELECT COUNT(DISTINCT user_id) FROM {$this->db->prefix}ra_recordings WHERE user_id > 0) as unique_students,
+            AVG(a.normalized_score) as avg_normalized_score,
+            COUNT(resp.id) as total_questions_answered,
+            (SUM(CASE WHEN resp.is_correct = 1 THEN 1 ELSE 0 END) * 100.0 / NULLIF(COUNT(resp.id), 0)) as correct_answer_rate
+        FROM {$this->db->prefix}ra_recordings r
+        LEFT JOIN {$this->db->prefix}ra_assessments a ON r.id = a.recording_id
+        LEFT JOIN {$this->db->prefix}ra_responses resp ON r.id = resp.recording_id
+        $where_clause";
+
+        error_log('Statistics query: ' . $query);
+
         return $this->db->get_row(
-            $this->db->prepare(
-                "SELECT
-                    COUNT(DISTINCT r.id) as total_recordings,
-                    COUNT(DISTINCT r.user_id) as unique_students,
-                    AVG(a.normalized_score) as avg_normalized_score,
-                    COUNT(resp.id) as total_questions_answered,
-                    (SUM(CASE WHEN resp.is_correct = 1 THEN 1 ELSE 0 END) * 100.0 / COUNT(resp.id)) as correct_answer_rate
-                FROM {$this->db->prefix}ra_recordings r
-                LEFT JOIN {$this->db->prefix}ra_assessments a ON r.id = a.recording_id
-                LEFT JOIN {$this->db->prefix}ra_responses resp ON r.id = resp.recording_id
-                $where_clause",
-                $where_args
-            ),
+            $this->db->prepare($query, $where_args),
             ARRAY_A
         );
     }
@@ -101,25 +102,33 @@ class RA_Statistics {
 
         $where_clause = $where ? 'WHERE ' . implode(' AND ', $where) : '';
 
-        return $this->db->get_results(
-            $this->db->prepare(
-                "SELECT
-                    q.question_text,
-                    p.title as passage_title,
-                    COUNT(resp.id) as times_answered,
-                    (SUM(CASE WHEN resp.is_correct = 1 THEN 1 ELSE 0 END) * 100.0 / COUNT(resp.id)) as correct_rate,
-                    AVG(resp.score) as avg_similarity
-                FROM {$this->db->prefix}ra_questions q
-                JOIN {$this->db->prefix}ra_passages p ON q.passage_id = p.id
-                JOIN {$this->db->prefix}ra_responses resp ON q.id = resp.question_id
-                JOIN {$this->db->prefix}ra_recordings r ON resp.recording_id = r.id
-                $where_clause
-                GROUP BY q.id
-                ORDER BY correct_rate DESC",
-                $where_args
-            ),
-            ARRAY_A
+        $query = $this->db->prepare(
+            "SELECT
+                q.question_text,
+                q.correct_answer,
+                p.title as passage_title,
+                COUNT(resp.id) as times_answered,
+                SUM(CASE WHEN resp.is_correct = 1 THEN 1 ELSE 0 END) as correct_count,
+                COUNT(resp.id) as total_count,
+                (SUM(CASE WHEN resp.is_correct = 1 THEN 1 ELSE 0 END) * 100.0 / COUNT(resp.id)) as correct_rate,
+                AVG(resp.score) as avg_similarity
+            FROM {$this->db->prefix}ra_questions q
+            JOIN {$this->db->prefix}ra_passages p ON q.passage_id = p.id
+            JOIN {$this->db->prefix}ra_responses resp ON q.id = resp.question_id
+            JOIN {$this->db->prefix}ra_recordings r ON resp.recording_id = r.id
+            $where_clause
+            GROUP BY q.id
+            ORDER BY correct_rate DESC",
+            $where_args
         );
+
+        error_log('Question Statistics Query: ' . $query);
+
+        $results = $this->db->get_results($query, ARRAY_A);
+
+        error_log('Question Statistics Results: ' . print_r($results, true));
+
+        return $results;
     }
 
     /**
