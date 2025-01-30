@@ -1,14 +1,14 @@
 # Reading Assesment WP plugin
 
 This is a show-text, voice recording, save scores plugin for Wordpress
-
-I uploaded all, well, many of the files to Claude AI to get an evaluation of what this is. The text below is from there. It hurts to be human but I suppose I just have to get on with it...
-The question is, did I follow Jean-Clude's suggestions? Hey, I'm still hooman so Hell No! Good suggestions though :)
+You can run it as-is or hook up Groq and/or OpenAI's Whisper to get decent evaluations for read voice. For that you need an API key or run your own at AWS or so.
 
 ## Claude AI 2024 evaluation
+
 Looking at your admin.js code and the associated PHP files, there's definitely an opportunity to create a more generic and maintainable solution.
 
 Then a 2025 Copilot description:
+
 # Reading Assessment
 
 **Reading Assessment** is a plugin for recording and evaluating reading comprehension. It allows administrators to assign reading passages to users and evaluate their comprehension through audio recordings and questions.
@@ -85,3 +85,5 @@ This plugin is licensed under the GPL v2 or later.
 ## Support
 
 For support, please open an issue in the GitHub repository or contact the author.
+
+I all else fails you know the drill: look around the web, learn a bunch of stuff resulting in 999 open tabs. Then resort to asking an AI and you're back to bug solving your quick and dirty code again :) Rinse and repeat.
