@@ -211,26 +211,6 @@ class Reading_Assessment_Database {
     }
 
     /**
-     * Get question statistics
-     *
-     * @param int $question_id Question ID
-     * @return array Statistics including correct/incorrect counts, average score
-     */
-    public function get_question_statistics($question_id) {
-        return $this->db->get_row(
-            $this->db->prepare(
-                "SELECT
-                    COUNT(*) as total_responses,
-                    SUM(CASE WHEN is_correct = 1 THEN 1 ELSE 0 END) as correct_responses,
-                    AVG(score) as average_score
-                FROM {$this->db->prefix}ra_responses
-                WHERE question_id = %d",
-                $question_id
-            )
-        );
-    }
-
-    /**
      * Get recording by ID
      *
      * @param int $recording_id Recording ID
@@ -362,13 +342,39 @@ class Reading_Assessment_Database {
             $columns = $this->db->get_col("SHOW COLUMNS FROM {$this->db->prefix}ra_responses");
             $has_created_at = in_array('created_at', $columns);
 
+            // Get the question with passage info
+            $question = $this->get_question($data['question_id']);
+            if (!$question) {
+                error_log('Question not found for ID: ' . $data['question_id']);
+                return false;
+            }
+
+            // Calculate similarity and correctness
+            $user_answer = strtolower(trim(sanitize_text_field($data['user_answer'])));
+            $correct_answer = strtolower(trim($question->correct_answer));
+
+            $similarity_score = $this->calculate_similarity($user_answer, $correct_answer);
+            $is_correct = $similarity_score >= 80 ? 1 : 0;
+
+            error_log(sprintf(
+                'Answer comparison - Passage: "%s", Question: "%s", User Answer: "%s", Correct Answer: "%s", Similarity: %f, Is Correct: %d',
+                $question->passage_title,
+                $question->question_text,
+                $user_answer,
+                $correct_answer,
+                $similarity_score,
+                $is_correct
+            ));
+
             $insert_data = array(
                 'recording_id' => absint($data['recording_id']),
                 'question_id' => absint($data['question_id']),
-                'user_answer' => sanitize_text_field($data['user_answer'])
+                'user_answer' => sanitize_text_field($data['user_answer']),
+                'is_correct' => $is_correct,
+                'score' => $similarity_score
             );
 
-            $format = array('%d', '%d', '%s');
+            $format = array('%d', '%d', '%s', '%d', '%f');
 
             // Only add created_at if column exists
             if ($has_created_at) {
@@ -395,6 +401,37 @@ class Reading_Assessment_Database {
             return false;
         }
     }
+
+    private function calculate_similarity($str1, $str2) {
+        if (empty($str1) || empty($str2)) {
+            return 0;
+        }
+
+        // Convert special characters and remove punctuation
+        $str1 = iconv('UTF-8', 'ASCII//TRANSLIT', $str1);
+        $str2 = iconv('UTF-8', 'ASCII//TRANSLIT', $str2);
+
+        // Remove punctuation and extra spaces
+        $str1 = preg_replace('/[^\p{L}\p{N}\s]/u', '', $str1);
+        $str2 = preg_replace('/[^\p{L}\p{N}\s]/u', '', $str2);
+
+        // Normalize whitespace
+        $str1 = preg_replace('/\s+/', ' ', trim($str1));
+        $str2 = preg_replace('/\s+/', ' ', trim($str2));
+
+        // Calculate Levenshtein distance
+        $levenshtein = levenshtein($str1, $str2);
+
+        // Calculate similarity percentage
+        $maxLength = max(strlen($str1), strlen($str2));
+        if ($maxLength === 0) {
+            return 0;
+        }
+
+        $similarity = (1 - ($levenshtein / $maxLength)) * 100;
+        return max(0, min(100, $similarity));
+    }
+
 
     /**
      * Get recordings for a user
@@ -1185,7 +1222,7 @@ class Reading_Assessment_Database {
      *
      * @return object Statistics object with overall metrics
      */
-    public function get_overall_statistics() {
+    public function get_system_overview() {
         $query = "
             SELECT
                 (SELECT COUNT(*) FROM {$this->db->prefix}ra_passages) as total_passages,
