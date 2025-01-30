@@ -37,17 +37,6 @@ class Reading_Assessment_Public {
             true
         );
 
-            // Get current user and nonce for debog
-        $ajax_nonce = wp_create_nonce('ra_public_nonce');
-        // error_log('Generated nonce: ' . $ajax_nonce);
-            // Pass essential data to JS
-            $script_data = array(
-                'ajax_url' => admin_url('admin-ajax.php'),
-                'nonce' => $ajax_nonce,
-                'debug' => true
-            );
-        // error_log('Localizing script with data: ' . print_r($script_data, true));
-
 
         // Include (on slug inspelningsmodul) WaveSurfer.js from CDN
         global $post;
@@ -79,12 +68,17 @@ class Reading_Assessment_Public {
             );
 
             // Pass AJAX URL to JavaScript
-            wp_localize_script('ra-recorder', 'raAjax', array_merge(
-                ['ajax_url' => admin_url('admin-ajax.php')],
-                $script_data
+            wp_localize_script('ra-recorder', 'raAjax', array(
+                'ajax_url' => admin_url('admin-ajax.php'),
+                'nonce' => wp_create_nonce('ra_public_nonce'),
+                'debug' => true,
+                'max_upload_size' => wp_max_upload_size(),
+                'allowed_mime_types' => array('audio/webm', 'audio/ogg', 'audio/wav')
             ));
         }
     }
+
+
 
     /**
      * Summary:
