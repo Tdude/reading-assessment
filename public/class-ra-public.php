@@ -28,57 +28,77 @@ class Reading_Assessment_Public {
     }
 
     public function enqueue_scripts() {
+        global $post;
 
-        wp_enqueue_script(
+        // First register all scripts
+        wp_register_script(
             $this->plugin_name . '-public',
-            RA_PLUGIN_URL . 'public/js/ra-public.js',
+            plugin_dir_url(__FILE__) . 'js/ra-public.js',
             ['jquery'],
             $this->version,
             true
         );
 
-
-        // Include (on slug inspelningsmodul) WaveSurfer.js from CDN
-        global $post;
+        // Only register recorder-related scripts on the recording page
         if (isset($post) && $post->post_name === 'inspelningsmodul') {
-            wp_enqueue_script(
-                'wavesurfer',
-                'https://unpkg.com/wavesurfer.js@7/dist/wavesurfer.min.js',
+            // Define paths for local scripts
+            $scripts_path = plugin_dir_path(__FILE__) . 'js/';
+            $scripts_url = plugin_dir_url(__FILE__) . 'js/';
+
+            // Download external scripts if they don't exist locally
+            $external_scripts = [
+                'wavesurfer.min.js' => 'https://cdn.jsdelivr.net/npm/wavesurfer.js@7.0.0/dist/wavesurfer.min.js',
+                'regions.min.js' => 'https://cdn.jsdelivr.net/npm/wavesurfer.js@7.0.0/dist/plugins/regions.min.js'
+            ];
+
+            foreach ($external_scripts as $filename => $url) {
+                if (!file_exists($scripts_path . $filename)) {
+                    $response = wp_remote_get($url);
+                    if (!is_wp_error($response) && wp_remote_retrieve_response_code($response) === 200) {
+                        wp_mkdir_p($scripts_path);
+                        file_put_contents($scripts_path . $filename, wp_remote_retrieve_body($response));
+                    }
+                }
+            }
+
+            // Register WaveSurfer scripts
+            wp_register_script('wavesurfer',
+                $scripts_url . 'wavesurfer.min.js',
                 [],
                 '7.0.0',
                 true
             );
 
-            // Include Regions plugin from CDN
-            wp_enqueue_script(
-                'wavesurfer-regions',
-                'https://unpkg.com/wavesurfer.js@7/dist/plugins/regions.min.js',
+            wp_register_script('wavesurfer-regions',
+                $scripts_url . 'regions.min.js',
                 ['wavesurfer'],
                 '7.0.0',
                 true
             );
 
-
-            wp_enqueue_script(
-                'ra-recorder',
-                plugins_url('/js/ra-recorder.js', __FILE__),
-                ['wavesurfer', 'wavesurfer-regions'],
+            wp_register_script('ra-recorder',
+                plugin_dir_url(__FILE__) . 'js/ra-recorder.js',
+                ['wavesurfer', 'wavesurfer-regions', $this->plugin_name . '-public'],
                 $this->version,
                 true
             );
 
-            // Pass AJAX URL to JavaScript
-            wp_localize_script('ra-recorder', 'raAjax', array(
-                'ajax_url' => admin_url('admin-ajax.php'),
-                'nonce' => wp_create_nonce('ra_public_nonce'),
-                'debug' => true,
-                'max_upload_size' => wp_max_upload_size(),
-                'allowed_mime_types' => array('audio/webm', 'audio/ogg', 'audio/wav')
-            ));
+            // Enqueue recorder-specific scripts in correct order
+            wp_enqueue_script('wavesurfer');
+            wp_enqueue_script('wavesurfer-regions');
+            wp_enqueue_script('ra-recorder');
         }
+
+        // Always enqueue public script and localize it
+        wp_enqueue_script($this->plugin_name . '-public');
+
+        // Localize the script once with all needed data
+        wp_localize_script($this->plugin_name . '-public', 'raAjax', [
+            'ajax_url' => admin_url('admin-ajax.php'),
+            'nonce' => wp_create_nonce(Reading_Assessment_Security::NONCE_PUBLIC),
+            'debug' => true
+        ]);
     }
-
-
 
     /**
      * Summary:
