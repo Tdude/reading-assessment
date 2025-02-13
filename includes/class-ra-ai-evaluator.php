@@ -88,7 +88,7 @@
         error_log('Audio file size: ' . filesize($full_path) . ' bytes');
 
         if (!file_exists($full_path)) {
-            error_log('File not found at path: ' . $full_path);
+            error_log('transcribe_audio säger: File not found at path: ' . $full_path);
             return new WP_Error('file_not_found', 'Audio file not found');
         }
 
@@ -99,7 +99,7 @@
                 'file' => new CURLFile($full_path, 'audio/webm', basename($full_path)),
                 'model' => 'whisper-1',
                 'language' => 'sv',
-                'response_format' => 'text'
+                'response_format' => ['type' => 'text']
             ];
 
             curl_setopt_array($ch, [
@@ -168,7 +168,7 @@
     }
 
     public function evaluate_reading($transcription, $expected_text) {
-        error_log('=== Starting AI evaluation ===');
+        error_log('=== Starting AI evaluate_reading ===');
         error_log('Transcription: ' . $transcription);
         error_log('Expected text: ' . $expected_text);
 
