@@ -95,7 +95,7 @@ class Reading_Assessment_Public {
         // Localize the script once with all needed data
         wp_localize_script($this->plugin_name . '-public', 'raAjax', [
             'ajax_url' => admin_url('admin-ajax.php'),
-            'nonce' => wp_create_nonce(Reading_Assessment_Security::NONCE_PUBLIC),
+            'nonce' => wp_create_nonce(Reading_Assessment_Security::NONCE_PUBLIC_QUESTIONS),
             'debug' => true
         ]);
     }
