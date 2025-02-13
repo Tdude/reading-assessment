@@ -350,7 +350,7 @@ class Reading_Assessment_Public {
         // error_log('POST data: ' . print_r($_POST, true));
 
         // First verify nonce
-        if (!check_ajax_referer('ra_public_nonce', 'nonce', false)) {
+        if (!check_ajax_referer(NONCE_PUBLIC_QUESTIONS, 'nonce', false)) {
             // error_log('Nonce verification failed');
             wp_send_json_error(['message' => 'Säkerhetskontrollen ogiltig tyvärr.']);
             return;
