@@ -10,6 +10,7 @@ class Reading_Assessment_Security {
     const NONCE_LIFETIME = 12 * HOUR_IN_SECONDS;
 
     // Nonce actions
+	const NONCE_PUBLIC = 'ra_public_nonce';
     const NONCE_PUBLIC_RECORDING = 'ra_public_recording_nonce';
     const NONCE_PUBLIC_QUESTIONS = 'ra_public_questions_nonce';
     const NONCE_PUBLIC_ANSWERS = 'ra_public_answers_nonce';
