@@ -1,101 +1,32 @@
-// ra-recorder.js
-window.addEventListener("unhandledrejection", function (event) {
-  // Prevent jQuery Migrate's null Promise rejection from showing as an error
-  if (event.reason === null) {
-    event.preventDefault();
-  }
-});
-// 1. First, define the RecorderManager
-window.RecorderManager = {
-  instance: null,
-  isInitialized: false,
-  initializationPromise: null,
+console.log("Global WaveSurfer:", window.WaveSurfer);
+console.log("WaveSurfer type:", typeof window.WaveSurfer);
+console.log("WaveSurfer keys:", Object.keys(window.WaveSurfer));
+console.log("Regions plugin:", window.WaveSurfer.Regions);
 
-  async initialize(container) {
-    if (this.initializationPromise) {
-      return this.initializationPromise;
-    }
-
-    this.initializationPromise = new Promise(async (resolve) => {
-      try {
-        console.log("Starting recorder initialization");
-        await waitForWaveSurfer();
-
-        if (!this.instance && container) {
-          this.instance = new ReadingAssessmentRecorder(container);
-          this.isInitialized = true;
-          console.log("Recorder initialized successfully");
-        }
-        resolve(this.instance);
-      } catch (error) {
-        console.error("Error initializing recorder:", error);
-        this.isInitialized = false;
-        this.initializationPromise = null;
-        resolve(null);
-      }
-    });
-
-    return this.initializationPromise;
-  },
-
-  getInstance() {
-    return this.instance;
-  },
-
-  isReady() {
-    return this.isInitialized && this.instance !== null;
-  },
-};
-
-// 2. Then, the WaveSurfer check function
-function waitForWaveSurfer() {
-  return new Promise((resolve) => {
-    if (window.WaveSurfer && window.WaveSurfer.Regions) {
-      console.log("WaveSurfer already available");
-      resolve();
-    } else {
-      console.log("Waiting for WaveSurfer...");
-      const checkInterval = setInterval(() => {
-        if (window.WaveSurfer && window.WaveSurfer.Regions) {
-          console.log("WaveSurfer now available");
-          clearInterval(checkInterval);
-          resolve();
-        }
-      }, 100);
-    }
-  });
-}
-
-// 3. The initialization function
-async function initializeRecorder() {
-  console.log("Starting recorder initialization process");
-  const container = document.querySelector(".ra-audio-recorder");
-  if (container) {
-    await window.RecorderManager.initialize(container);
-    // Dispatch event when recorder is ready
-    window.dispatchEvent(new CustomEvent("recorderReady"));
-  } else {
-    console.error("Recorder container not found");
-  }
-}
-
-// 4. The class definition
 class ReadingAssessmentRecorder {
   constructor(container) {
+    console.log("Initializing ReadingAssessmentRecorder");
+    console.log("WaveSurfer availability:", !!window.WaveSurfer);
+    console.log(
+      "WaveSurfer Regions availability:",
+      !!window.WaveSurfer?.regions
+    );
+
     if (!container) {
       console.error("Container is required for ReadingAssessmentRecorder");
       return;
     }
 
+    // Core properties
     this.container = container;
     this.mediaStream = null;
     this.recorder = null;
     this.audioBlob = null;
     this.wavesurfer = null;
-    this.regionsPlugin = null;
+    this.region = null;
     this.isRecording = false;
 
-    // Get UI elements
+    // Get UI elements with debug logging
     this.startBtn = container.querySelector("#start-recording");
     this.stopBtn = container.querySelector("#stop-recording");
     this.playBtn = container.querySelector("#playback");
@@ -104,6 +35,17 @@ class ReadingAssessmentRecorder {
     this.status = container.querySelector("#status");
     this.waveformContainer = container.querySelector("#waveform");
 
+    console.log("UI Elements found:", {
+      startBtn: !!this.startBtn,
+      stopBtn: !!this.stopBtn,
+      playBtn: !!this.playBtn,
+      trimBtn: !!this.trimBtn,
+      uploadBtn: !!this.uploadBtn,
+      status: !!this.status,
+      waveformContainer: !!this.waveformContainer,
+    });
+
+    // Validate and initialize
     if (!this.validateElements()) {
       console.error("Required UI elements not found");
       return;
@@ -115,23 +57,59 @@ class ReadingAssessmentRecorder {
   }
 
   validateElements() {
-    return (
+    const isValid =
       this.startBtn &&
       this.stopBtn &&
       this.playBtn &&
       this.trimBtn &&
       this.uploadBtn &&
       this.status &&
-      this.waveformContainer
-    );
+      this.waveformContainer;
+    console.log("Elements validation result:", isValid);
+    return isValid;
   }
 
   initializeButtonStates() {
+    console.log("Initializing button states");
     this.startBtn.disabled = false;
     this.stopBtn.disabled = true;
     this.playBtn.disabled = true;
     this.trimBtn.disabled = true;
     this.uploadBtn.disabled = true;
+  }
+
+  async startRecording() {
+    console.log("Start recording triggered");
+    try {
+      console.log("Requesting media stream...");
+      this.mediaStream = await navigator.mediaDevices.getUserMedia({
+        audio: true,
+      });
+      console.log("Media stream obtained:", !!this.mediaStream);
+
+      this.recorder = new MediaRecorder(this.mediaStream);
+      console.log("MediaRecorder created:", !!this.recorder);
+
+      this.isRecording = true;
+
+      const chunks = [];
+      this.recorder.ondataavailable = (e) => {
+        console.log("Data chunk available:", e.data.size, "bytes");
+        chunks.push(e.data);
+      };
+
+      this.recorder.onstop = async () => {
+        console.log("Recording stopped, processing chunks...");
+        await this.handleRecordingStop(chunks);
+      };
+
+      this.recorder.start();
+      console.log("Recording started");
+      this.updateUIForRecording(true);
+    } catch (error) {
+      console.error("Recording failed:", error);
+      this.status.textContent = `Kunde inte starta inspelningen: ${error.message}`;
+    }
   }
 
   bindEventHandlers() {
@@ -145,183 +123,18 @@ class ReadingAssessmentRecorder {
   checkInitialPassage() {
     const currentPassageId =
       document.getElementById("current-passage-id")?.value;
-    console.log("Checking initial passage ID:", currentPassageId);
-
     if (currentPassageId) {
       this.handlePassageChange(currentPassageId);
     } else {
-      // If no passage ID, disable start button and show message
       this.startBtn.disabled = true;
       this.status.textContent = "Välj en text innan du börjar spela in.";
     }
   }
 
-  initializeWaveSurfer() {
-    try {
-      console.log("Initializing WaveSurfer...");
-      if (this.wavesurfer) {
-        this.wavesurfer.destroy();
-      }
-
-      // Create bare WaveSurfer first
-      this.wavesurfer = WaveSurfer.create({
-        container: this.waveformContainer,
-        waveColor: "#005a87",
-        progressColor: "#1976d2",
-        height: 100,
-        interact: true,
-        minPxPerSec: 50,
-      });
-
-      // Create Regions plugin exactly like the example
-      this.regionsPlugin = WaveSurfer.Regions.create();
-      this.wavesurfer.registerPlugin(this.regionsPlugin);
-
-      console.log("Plugin registration:", {
-        wavesurfer: this.wavesurfer,
-        regions: this.regionsPlugin,
-        container: this.waveformContainer,
-      });
-
-      this.setupWavesurferEvents();
-      return this.wavesurfer;
-    } catch (error) {
-      console.error("Error initializing WaveSurfer:", error);
-      throw error;
-    }
-  }
-
-  createRegion(start, end) {
-    if (!this.regionsPlugin) return null;
-
-    this.regionsPlugin.clearRegions();
-    return this.regionsPlugin.addRegion({
-      start,
-      end,
-      resize: true,
-      color: "rgba(44, 202, 237, 0.2)",
-    });
-  }
-
-  setupWavesurferEvents() {
-    if (!this.wavesurfer) return;
-
-    this.wavesurfer.on("decode", () => {
-      const duration = this.wavesurfer.getDuration();
-      this.region = this.createRegion(0, duration);
-
-      console.log("Region creation result:", {
-        region: this.region,
-        parent: this.region.element?.parentElement,
-        parentStyle: this.region.element?.parentElement?.getAttribute("style"),
-      });
-    });
-
-    // Existing listeners
-    this.regionsPlugin.on("region-updated", (region) => {
-      console.log("Region being updated:", region);
-    });
-
-    this.regionsPlugin.on("region-update-end", (region) => {
-      console.log("Region update finished:", region);
-    });
-
-    // Add these new debug listeners
-    this.regionsPlugin.on("region-clicked", (region, e) => {
-      console.log("Region clicked:", { region, event: e });
-    });
-
-    this.regionsPlugin.on("region-mouseover", (region) => {
-      console.log("Region mouse over:", region);
-    });
-
-    this.regionsPlugin.on("region-mouseout", (region) => {
-      console.log("Region mouse out:", region);
-    });
-  }
-
-  async handleWavesurferReady() {
-    if (!this.isRecording) {
-      const duration = this.wavesurfer.getDuration();
-      await this.createRegion(0, duration);
-
-      // Enable playback controls
-      this.playBtn.disabled = false;
-      this.trimBtn.disabled = false;
-
-      // Update UI state
-      this.updateUIForRecording(false);
-    }
-  }
-
-  updatePlayButtonState(isPlaying) {
-    const label = this.playBtn.querySelector(".ra-label");
-    const icon = this.playBtn.querySelector(".ra-icon");
-
-    if (isPlaying) {
-      label.textContent = "Paus";
-      icon.textContent = "⏸";
-    } else {
-      label.textContent = "Spela";
-      icon.textContent = "▶";
-    }
-  }
-
-  async startRecording() {
-    try {
-      this.mediaStream = await navigator.mediaDevices.getUserMedia({
-        audio: true,
-      });
-      this.recorder = new MediaRecorder(this.mediaStream);
-      this.isRecording = true;
-
-      const chunks = [];
-      this.recorder.ondataavailable = (e) => chunks.push(e.data);
-      this.recorder.onstop = async () => this.handleRecordingStop(chunks);
-
-      this.recorder.start();
-      this.updateUIForRecording(true);
-    } catch (error) {
-      console.error("Recording failed:", error);
-      alert(
-        "Kunde inte starta inspelningen. Kontrollera att mikrofonen är aktiverad."
-      );
-    }
-  }
-
-  async handleRecordingStop(chunks) {
-    try {
-      this.audioBlob = new Blob(chunks, { type: "audio/webm" });
-      this.isRecording = false;
-
-      console.log("Recording stopped, blob created:", {
-        type: this.audioBlob.type,
-        size: this.audioBlob.size,
-      });
-
-      const audioUrl = URL.createObjectURL(this.audioBlob);
-
-      // Initialize WaveSurfer and load audio
-      if (!this.wavesurfer) {
-        await this.initializeWaveSurfer();
-      } else {
-        // Just clear existing regions
-        this.regionsPlugin.clearRegions();
-      }
-      await this.wavesurfer.load(audioUrl);
-
-      // Region will be created automatically on 'decode' event
-
-      // Update UI state
-      this.updateUIForRecording(false);
-      this.playBtn.disabled = false;
-      this.trimBtn.disabled = false;
-
-      // Clean up URL
-      URL.revokeObjectURL(audioUrl);
-    } catch (error) {
-      console.error("Error handling recording stop:", error);
-      this.status.textContent = "Ett fel uppstod vid inspelningsstopp.";
+  stopRecording() {
+    if (this.recorder?.state === "recording") {
+      this.recorder.stop();
+      this.mediaStream.getTracks().forEach((track) => track.stop());
     }
   }
 
@@ -331,13 +144,6 @@ class ReadingAssessmentRecorder {
     this.status.textContent = isRecording
       ? "Spelar in..."
       : "Inspelningen är stoppad.";
-  }
-
-  stopRecording() {
-    if (this.recorder?.state === "recording") {
-      this.recorder.stop();
-      this.mediaStream.getTracks().forEach((track) => track.stop());
-    }
   }
 
   togglePlayback() {
@@ -352,13 +158,150 @@ class ReadingAssessmentRecorder {
     }
   }
 
+  async handleRecordingStop(chunks) {
+    try {
+      // Confirm WaveSurfer and Regions are available
+      if (!window.WaveSurfer || !window.WaveSurfer.regions) {
+        console.error("WaveSurfer or Regions plugin not available");
+        throw new Error("WaveSurfer or Regions plugin not available");
+      }
+
+      this.audioBlob = new Blob(chunks, { type: "audio/webm" });
+      this.isRecording = false;
+
+      const audioUrl = URL.createObjectURL(this.audioBlob);
+
+      // Destroy existing WaveSurfer instance if it exists
+      if (this.wavesurfer) {
+        this.wavesurfer.destroy();
+      }
+
+      // Create WaveSurfer instance EXACTLY like the local example
+      this.wavesurfer = WaveSurfer.create({
+        waveColor: "#005a87",
+        progressColor: "#1976d2",
+        height: 100,
+        interact: true,
+        minPxPerSec: 50,
+        container: "#waveform",
+        plugins: [
+          WaveSurfer.regions.create({
+            dragSelection: false,
+          }),
+        ],
+      });
+
+      // Load audio and wait for it to be ready
+      await new Promise((resolve, reject) => {
+        // Mimic local example's region creation
+        this.wavesurfer.on("ready", () => {
+          const duration = this.wavesurfer.getDuration();
+
+          // Use addRegion method directly
+          this.region = this.wavesurfer.addRegion({
+            start: 0,
+            end: duration,
+            drag: false,
+            resize: true,
+            color: "rgba(44, 202, 237, 0.2)",
+          });
+
+          resolve();
+        });
+
+        this.wavesurfer.on("error", (error) => {
+          console.error("Wavesurfer error:", error);
+          reject(error);
+        });
+
+        this.wavesurfer.load(audioUrl);
+      });
+
+      // Update UI
+      this.updateUIForRecording(false);
+      this.playBtn.disabled = false;
+      this.trimBtn.disabled = false;
+
+      // Clean up URL
+      URL.revokeObjectURL(audioUrl);
+    } catch (error) {
+      console.error("Detailed error handling recording stop:", error);
+      this.status.textContent = "Ett fel uppstod vid inspelningsstopp.";
+    }
+  }
+
+  async updateAudioWithTrimmed(trimmedBlob) {
+    try {
+      console.log("Updating audio with trimmed blob:", {
+        type: trimmedBlob.type,
+        size: trimmedBlob.size,
+      });
+
+      // Store current region bounds before loading new audio
+      const previousStart = this.region ? this.region.start : 0;
+      const previousEnd = this.region ? this.region.end : null;
+
+      this.audioBlob = trimmedBlob;
+      const audioUrl = URL.createObjectURL(trimmedBlob);
+
+      // Destroy existing WaveSurfer instance
+      if (this.wavesurfer) {
+        this.wavesurfer.destroy();
+      }
+
+      // Recreate WaveSurfer with regions plugin
+      this.wavesurfer = WaveSurfer.create({
+        waveColor: "#005a87",
+        progressColor: "#1976d2",
+        height: 100,
+        interact: true,
+        minPxPerSec: 50,
+        container: "#waveform",
+        plugins: [
+          WaveSurfer.regions.create({
+            dragSelection: false,
+          }),
+        ],
+      });
+
+      // Load audio and create region
+      await new Promise((resolve, reject) => {
+        this.wavesurfer.on("ready", () => {
+          const duration = this.wavesurfer.getDuration();
+
+          // Create region with full or previous length
+          this.region = this.wavesurfer.addRegion({
+            start: 0,
+            end: Math.min(previousEnd || duration, duration),
+            drag: false,
+            resize: true,
+            color: "rgba(44, 202, 237, 0.2)",
+          });
+
+          resolve();
+        });
+
+        this.wavesurfer.on("error", reject);
+        this.wavesurfer.load(audioUrl);
+      });
+
+      this.status.textContent = "Ljudet har trimmats.";
+      this.uploadBtn.disabled = false;
+
+      // Clean up URL
+      URL.revokeObjectURL(audioUrl);
+    } catch (error) {
+      console.error("Error updating trimmed audio:", error);
+      throw error;
+    }
+  }
+
   async trimAudio() {
-    console.log("Trim components check:", {
-      hasRegion: !!this.region,
-      hasAudioBlob: !!this.audioBlob,
-      hasWavesurfer: !!this.wavesurfer,
-      regionDetails: this.region,
-      wavesurferState: this.wavesurfer?.isReady,
+    console.log("Trim debug:", {
+      wavesurfer: this.wavesurfer,
+      regions: this.wavesurfer?.regions,
+      regionsType: typeof this.wavesurfer?.regions,
+      clearRegionsExists: typeof this.wavesurfer?.regions?.clearRegions,
     });
 
     if (!this.region || !this.audioBlob || !this.wavesurfer) {
@@ -367,21 +310,9 @@ class ReadingAssessmentRecorder {
     }
 
     try {
-      const duration = this.wavesurfer.getDuration();
-      const regionStart = parseFloat(this.region.start);
-      const regionEnd = parseFloat(this.region.end);
-
-      console.log("Current region bounds:", {
-        start: regionStart,
-        end: regionEnd,
-        duration: duration,
-      });
-
-      // Remove the check for "no trimming needed"
       const trimmedBlob = await this.createTrimmedAudio();
       if (trimmedBlob) {
         await this.updateAudioWithTrimmed(trimmedBlob);
-        console.log("Audio trimmed successfully");
       }
     } catch (error) {
       console.error("Error trimming audio:", error);
@@ -399,14 +330,12 @@ class ReadingAssessmentRecorder {
     const endSample = Math.floor(this.region.end * audioBuffer.sampleRate);
     const trimmedLength = endSample - startSample;
 
-    // Create new buffer for the trimmed audio
     const trimmedBuffer = audioContext.createBuffer(
       audioBuffer.numberOfChannels,
       trimmedLength,
       audioBuffer.sampleRate
     );
 
-    // Copy the selected portion
     for (let channel = 0; channel < audioBuffer.numberOfChannels; channel++) {
       const channelData = audioBuffer.getChannelData(channel);
       const trimmedData = trimmedBuffer.getChannelData(channel);
@@ -415,7 +344,6 @@ class ReadingAssessmentRecorder {
       }
     }
 
-    // Convert to a MediaStream and then to a WebM blob
     const mediaStream = audioContext.createMediaStreamDestination();
     const source = audioContext.createBufferSource();
     source.buffer = trimmedBuffer;
@@ -447,33 +375,11 @@ class ReadingAssessmentRecorder {
       const currentPassageId =
         document.getElementById("current-passage-id")?.value;
 
-      console.log("Audio blob before upload:", {
-        type: this.audioBlob.type,
-        size: this.audioBlob.size,
-        content: await this.audioBlob
-          .text()
-          .catch((e) => "Unable to read blob content"),
-      });
-
       formData.append("action", "ra_save_recording");
       formData.append("audio_file", this.audioBlob, "recording.webm");
       formData.append("passage_id", currentPassageId);
       formData.append("duration", this.wavesurfer.getDuration().toString());
       formData.append("nonce", raAjax.nonce);
-
-      // Log FormData contents
-      console.log("FormData contents:");
-      for (let pair of formData.entries()) {
-        if (pair[0] === "audio_file") {
-          console.log("audio_file:", {
-            name: pair[1].name,
-            type: pair[1].type,
-            size: pair[1].size,
-          });
-        } else {
-          console.log(pair[0], pair[1]);
-        }
-      }
 
       const response = await fetch(raAjax.ajax_url, {
         method: "POST",
@@ -485,53 +391,40 @@ class ReadingAssessmentRecorder {
 
       if (data.success) {
         this.status.textContent = "Inspelningen har laddats upp.";
-        const questionsSection = document.getElementById("questions-section");
-        if (questionsSection) {
-          questionsSection.style.display = "block";
+
+        // Fetch questions
+        const questionsFormData = new FormData();
+        questionsFormData.append("action", "ra_public_get_questions");
+        questionsFormData.append("passage_id", currentPassageId);
+        questionsFormData.append("nonce", raAjax.nonce);
+
+        const questionsResponse = await fetch(raAjax.ajax_url, {
+          method: "POST",
+          body: questionsFormData,
+          credentials: "same-origin",
+        });
+
+        const questionsData = await questionsResponse.json();
+
+        if (questionsData.success) {
+          this.showQuestions(questionsData);
+        } else {
+          console.error("Failed to fetch questions:", questionsData);
+          this.status.textContent =
+            questionsData.data?.message || "Kunde inte hämta frågor.";
         }
       } else {
-        console.error("Server response:", data);
         throw new Error(data.data?.message || "Uppladdningen misslyckades");
       }
     } catch (error) {
       console.error("Upload failed:", error);
-      this.status.textContent =
-        "Ett fel uppstod vid uppladdningen: " + (error.message || "Okänt fel");
+      this.status.textContent = `Ett fel uppstod vid uppladdningen: ${error.message}`;
     }
   }
 
-  async updateAudioWithTrimmed(trimmedBlob) {
-    try {
-      console.log("Updating audio with trimmed blob:", {
-        type: trimmedBlob.type,
-        size: trimmedBlob.size,
-      });
-
-      // Store current region bounds before loading new audio
-      const previousStart = this.region ? this.region.start : 0;
-      const previousEnd = this.region ? this.region.end : null;
-
-      this.audioBlob = trimmedBlob;
-      const audioUrl = URL.createObjectURL(trimmedBlob);
-
-      // Initialize new WaveSurfer instance
-      await this.initializeWaveSurfer();
-      await this.wavesurfer.load(audioUrl);
-
-      // After loading, recreate region with previous end position if it exists
-      if (previousEnd !== null) {
-        const duration = this.wavesurfer.getDuration();
-        this.createRegion(previousStart, Math.min(previousEnd, duration));
-      }
-
-      this.status.textContent = "Ljudet har trimmats.";
-      this.uploadBtn.disabled = false;
-
-      // Clean up URL
-      URL.revokeObjectURL(audioUrl);
-    } catch (error) {
-      console.error("Error updating trimmed audio:", error);
-      throw error;
+  writeString(view, offset, string) {
+    for (let i = 0; i < string.length; i++) {
+      view.setUint8(offset + i, string.charCodeAt(i));
     }
   }
 
@@ -557,14 +450,11 @@ class ReadingAssessmentRecorder {
     this.audioBlob = null;
     this.region = null;
     this.isRecording = false;
-    this.hasRegion = false;
 
     this.initializeButtonStates();
-    this.updatePlayButtonState(false);
   }
 
   updateUIForPassage(passageId) {
-    console.log("Updating UI for passage:", passageId);
     const hasValidPassage = passageId && passageId !== "0";
     this.startBtn.disabled = !hasValidPassage;
     this.stopBtn.disabled = true;
@@ -573,79 +463,132 @@ class ReadingAssessmentRecorder {
       : "Välj en text innan du börjar spela in.";
   }
 
-  async loadAudioBlob(blob) {
-    if (this.wavesurfer) {
-      const audioUrl = URL.createObjectURL(blob);
-      await this.wavesurfer.load(audioUrl);
-      this.audioBlob = blob;
+  showQuestions(questionsData) {
+    // Create the questions form
+    let questionsHtml = '<form id="questions-form" class="ra-questions-form">';
+    questionsData.forEach((question) => {
+      questionsHtml += `
+        <div class="ra-question-item">
+          <label for="question-${question.id}">
+            ${question.question_text}
+          </label>
+          <input type="text"
+            id="question-${question.id}"
+            name="answers[${question.id}]"
+            class="ra-answer-input"
+            required>
+        </div>
+      `;
+    });
+    questionsHtml += `
+      <button type="submit" class="ra-button submit-answers">
+        Skicka svar
+      </button>
+    </form>`;
+
+    // Create or update questions section
+    let questionsSection = document.getElementById("questions-section");
+    if (!questionsSection) {
+      questionsSection = document.createElement("div");
+      questionsSection.id = "questions-section";
+      document.body.appendChild(questionsSection);
     }
+
+    // Insert questions HTML
+    questionsSection.innerHTML = questionsHtml;
+    questionsSection.style.display = "block";
+
+    // Add event listener for form submission
+    const questionsForm = document.getElementById("questions-form");
+    questionsForm.addEventListener(
+      "submit",
+      this.handleQuestionSubmit.bind(this)
+    );
   }
 
-  async audioBufferToBlob(audioBuffer) {
-    const wav = this.audioBufferToWav(audioBuffer);
-    return new Blob([wav], { type: "audio/wav" });
-  }
+  async handleQuestionSubmit(event) {
+    event.preventDefault();
+    const form = event.target;
+    const formData = new FormData(form);
 
-  audioBufferToWav(buffer) {
-    const numChannels = buffer.numberOfChannels;
-    const length = buffer.length;
-    const sampleRate = buffer.sampleRate;
-    const bytesPerSample = 2;
-    const blockAlign = numChannels * bytesPerSample;
-    const byteRate = sampleRate * blockAlign;
-    const dataSize = length * blockAlign;
-
-    const bufferArray = new ArrayBuffer(44 + dataSize);
-    const view = new DataView(bufferArray);
-
-    // Write WAV header
-    this.writeString(view, 0, "RIFF"); // RIFF header
-    view.setUint32(4, 36 + dataSize, true); // File size
-    this.writeString(view, 8, "WAVE"); // WAVE format
-    this.writeString(view, 12, "fmt "); // fmt chunk
-    view.setUint32(16, 16, true); // fmt chunk size
-    view.setUint16(20, 1, true); // Audio format (1 = PCM)
-    view.setUint16(22, numChannels, true); // Number of channels
-    view.setUint32(24, sampleRate, true); // Sample rate
-    view.setUint32(28, byteRate, true); // Byte rate
-    view.setUint16(32, blockAlign, true); // Block align
-    view.setUint16(34, bytesPerSample * 8, true); // Bits per sample
-    this.writeString(view, 36, "data"); // data chunk
-    view.setUint32(40, dataSize, true); // data chunk size
-
-    // Write PCM audio data
-    let offset = 44;
-    for (let i = 0; i < numChannels; i++) {
-      const channelData = buffer.getChannelData(i);
-      for (let j = 0; j < channelData.length; j++) {
-        const sample = Math.max(-1, Math.min(1, channelData[j])); // Clamp sample to [-1, 1]
-        view.setInt16(
-          offset,
-          sample < 0 ? sample * 0x8000 : sample * 0x7fff,
-          true
-        ); // Convert to 16-bit PCM
-        offset += 2;
+    // Prepare answers for submission
+    const answers = {};
+    for (let [key, value] of formData.entries()) {
+      if (key.startsWith("answers[") && key.endsWith("]")) {
+        const questionId = key.match(/\[(\d+)\]/)[1];
+        answers[questionId] = value;
       }
     }
 
-    return bufferArray;
-  }
+    try {
+      const submissionData = new FormData();
+      submissionData.append("action", "ra_submit_answers");
+      submissionData.append("nonce", raAjax.nonce);
+      submissionData.append("recording_id", this.recordingId); // Assumes this is set during recording upload
+      submissionData.append("answers", JSON.stringify(answers));
 
-  writeString(view, offset, string) {
-    for (let i = 0; i < string.length; i++) {
-      view.setUint8(offset + i, string.charCodeAt(i));
+      const response = await fetch(raAjax.ajax_url, {
+        method: "POST",
+        body: submissionData,
+        credentials: "same-origin",
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        this.status.textContent = "Svar inskickade.";
+        form.style.display = "none";
+      } else {
+        console.error("Answer submission failed:", data);
+        this.status.textContent =
+          data.data?.message || "Ett fel uppstod vid inskickande av svar.";
+      }
+    } catch (error) {
+      console.error("Error submitting answers:", error);
+      this.status.textContent = "Ett fel uppstod vid inskickande av svar.";
     }
   }
 }
 
-// 5. Export class
-window.ReadingAssessmentRecorder = ReadingAssessmentRecorder;
+// Recorder Manager to handle initialization
+window.RecorderManager = {
+  instance: null,
+  isInitialized: false,
 
-// Initialize when DOM is ready
+  async initialize(container) {
+    if (!this.instance) {
+      this.instance = new ReadingAssessmentRecorder(container);
+      this.isInitialized = true;
+    }
+    return this.instance;
+  },
+
+  getInstance() {
+    return this.instance;
+  },
+
+  isReady() {
+    return this.isInitialized && this.instance !== null;
+  },
+};
+
+// Modified initialization code
 document.addEventListener("DOMContentLoaded", async function () {
-  await waitForWaveSurfer();
+  console.log("DOM Content Loaded");
+  console.log("Looking for recorder container...");
+
   const container = document.querySelector(".ra-audio-recorder");
+  console.log("Recorder container found:", !!container);
+
   if (container) {
-    window.RecorderManager.initialize(container);
+    try {
+      console.log("Initializing RecorderManager...");
+      await window.RecorderManager.initialize(container);
+      console.log("RecorderManager initialized successfully");
+    } catch (error) {
+      console.error("Error initializing RecorderManager:", error);
+    }
+  } else {
+    console.error("Recorder container not found in DOM");
   }
 });
