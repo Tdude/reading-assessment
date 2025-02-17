@@ -1,4 +1,11 @@
 // ra-public.js
+window.addEventListener("unhandledrejection", function (event) {
+  // Prevent jQuery Migrate's null Promise rejection from showing as an error
+  if (event.reason === null) {
+    event.preventDefault();
+  }
+});
+
 window.RAPublicUtils = {
   VALID_TYPES: Object.freeze({
     SUCCESS: "success",
@@ -30,26 +37,50 @@ window.RAPublicUtils = {
   },
 
   waitForRecorder: function () {
+    console.log("waitForRecorder called");
     return new Promise((resolve) => {
+      // First check: Is RecorderManager defined?
+      console.log("RecorderManager exists:", !!window.RecorderManager);
+
       if (window.RecorderManager && window.RecorderManager.isReady()) {
         console.log("Recorder already ready");
-        resolve(window.RecorderManager.getInstance());
+        const instance = window.RecorderManager.getInstance();
+        console.log("Got recorder instance:", !!instance);
+        resolve(instance);
         return;
       }
 
       console.log("Waiting for recorder to be ready...");
-      const readyHandler = () => {
-        console.log("Recorder ready event received");
-        window.removeEventListener("recorderReady", readyHandler);
-        resolve(window.RecorderManager.getInstance());
+      let attempts = 0;
+      const maxAttempts = 10;
+
+      const checkRecorder = () => {
+        attempts++;
+        console.log(`Checking recorder (attempt ${attempts}/${maxAttempts})`);
+
+        if (window.RecorderManager && window.RecorderManager.isReady()) {
+          console.log("Recorder became ready");
+          const instance = window.RecorderManager.getInstance();
+          console.log("Got recorder instance:", !!instance);
+          resolve(instance);
+          return;
+        }
+
+        if (attempts < maxAttempts) {
+          setTimeout(checkRecorder, 500);
+        } else {
+          console.error("Recorder failed to initialize after maximum attempts");
+          resolve(null);
+        }
       };
-      window.addEventListener("recorderReady", readyHandler);
+
+      checkRecorder();
     });
   },
 
   async updateRecorderState(passageId) {
     try {
-      console.log("Waiting for recorder before updating state");
+      console.log("updateRecorderState called for passage:", passageId);
       const recorder = await this.waitForRecorder();
 
       if (recorder) {
@@ -64,7 +95,11 @@ window.RAPublicUtils = {
   },
 
   initCollapsible: function () {
-    document.querySelectorAll(".ra-collapsible-title").forEach((title) => {
+    console.log("Initializing collapsible elements");
+    const titles = document.querySelectorAll(".ra-collapsible-title");
+    console.log("Found collapsible titles:", titles.length);
+
+    titles.forEach((title) => {
       title.addEventListener("click", async (event) => {
         event.stopPropagation();
 
@@ -116,8 +151,14 @@ window.RAPublicUtils = {
 };
 
 document.addEventListener("DOMContentLoaded", function () {
-  console.log("Initializing RAPublicUtils");
+  console.log("DOM Content Loaded - Initializing RAPublicUtils");
   RAPublicUtils.initCollapsible();
+
+  // Check if WaveSurfer is available
+  console.log("WaveSurfer availability:", {
+    wavesurfer: !!window.WaveSurfer,
+    regions: !!window.WaveSurfer?.regions,
+  });
 
   if (new URLSearchParams(window.location.search).get("login") === "success") {
     RAPublicUtils.showOverlay("Du är inloggad.", "success");
