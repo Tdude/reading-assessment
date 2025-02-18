@@ -6,7 +6,7 @@
  * @subpackage ReadingAssessment/includes
  */
 
-class Reading_Assessment_Activator
+class RA_Activator
 {
     /**
      * Create the necessary database tables and plugin setup.

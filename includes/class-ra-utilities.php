@@ -4,7 +4,7 @@
  * Get many HSL colors for stats
  */
 
-class Reading_Assessment_Utilities {
+class RA_Utilities {
     private static $instance = null;
 
     public static function get_instance() {

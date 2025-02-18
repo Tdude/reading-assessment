@@ -6,7 +6,7 @@
  * @subpackage ReadingAssessment/includes
  */
 
-class Reading_Assessment_Recorder {
+class RA_Recorder {
 
     private $upload_dir;
     private $allowed_mime_types;

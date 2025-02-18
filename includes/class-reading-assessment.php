@@ -6,7 +6,7 @@
  * @subpackage ReadingAssessment/includes
  */
 
-class Reading_Assessment {
+class RA {
     private static $instance = null;
     private $admin = null;
     protected $loader;
@@ -37,11 +37,11 @@ class Reading_Assessment {
         require_once RA_PLUGIN_DIR . 'includes/class-ra-database.php';
 
 
-        $this->loader = new Reading_Assessment_Loader();
+        $this->loader = new RA_Loader();
     }
 
     private function set_locale() {
-        $plugin_i18n = new Reading_Assessment_i18n();
+        $plugin_i18n = new RA_i18n();
         $this->loader->add_action('plugins_loaded', $plugin_i18n, 'load_plugin_textdomain');
     }
 
@@ -56,7 +56,7 @@ class Reading_Assessment {
         if (!$this->admin === null) {
             return;
         }
-        $plugin_admin = new Reading_Assessment_Admin($this->get_plugin_name(), $this->get_version());
+        $plugin_admin = new RA_Admin($this->get_plugin_name(), $this->get_version());
         $this->loader->add_action('admin_enqueue_scripts', $plugin_admin, 'enqueue_styles');
         $this->loader->add_action('admin_enqueue_scripts', $plugin_admin, 'enqueue_scripts');
         $this->loader->add_action('admin_menu', $plugin_admin, 'add_menu_pages');
@@ -83,7 +83,7 @@ class Reading_Assessment {
     }
 
     private function define_public_hooks() {
-        $plugin_public = new Reading_Assessment_Public($this->get_plugin_name(), $this->get_version());
+        $plugin_public = new RA_Public($this->get_plugin_name(), $this->get_version());
 
         // Basic hooks
         $this->loader->add_action('wp_enqueue_scripts', $plugin_public, 'enqueue_styles');
@@ -120,7 +120,7 @@ class Reading_Assessment {
     }
 
     private function define_cron_hooks() {
-        $ai_evaluator = new Reading_Assessment_AI_Evaluator();
+        $ai_evaluator = new RA_AI_Evaluator();
         //$this->loader->add_action('ra_process_transcription', $ai_evaluator, 'process_transcription');
         $this->loader->add_action('ra_process_recording', $ai_evaluator, 'process_recording');
     }

@@ -6,7 +6,7 @@
  * @subpackage ReadingAssessment/public
  */
 
-class Reading_Assessment_Public {
+class RA_Public {
 
     private $plugin_name;
     private $version;
@@ -95,7 +95,7 @@ class Reading_Assessment_Public {
         // Localize the script once with all needed data
         wp_localize_script($this->plugin_name . '-public', 'raAjax', [
             'ajax_url' => admin_url('admin-ajax.php'),
-            'nonce' => wp_create_nonce(Reading_Assessment_Security::NONCE_PUBLIC_QUESTIONS),
+            'nonce' => wp_create_nonce(RA_Security::NONCE_PUBLIC_QUESTIONS),
             'debug' => true
         ]);
     }
@@ -192,7 +192,7 @@ class Reading_Assessment_Public {
         <h3><?php _e('Frågor om texten', 'reading-assessment'); ?></h3>
         <?php
             if ($current_passage_id) {
-                $db = new Reading_Assessment_Database();
+                $db = new RA_Database();
                 $questions = $db->get_questions_for_passage($current_passage_id);
 
                 if ($questions): ?>
@@ -232,7 +232,7 @@ class Reading_Assessment_Public {
         $current_user = wp_get_current_user();
         $nickname = $current_user->nickname ?: $current_user->display_name;
 
-        $db = new Reading_Assessment_Database();
+        $db = new RA_Database();
         $assigned_passages = $db->get_user_assigned_passages($current_user_id);
 
         if (empty($assigned_passages)) {
@@ -274,11 +274,11 @@ class Reading_Assessment_Public {
      * AJAX handler for saving recordings with security improvements
      */
     public function ajax_save_recording() {
-        $security = Reading_Assessment_Security::get_instance();
+        $security = RA_Security::get_instance();
 
         try {
             // Validate request
-            $security->validate_ajax_request(Reading_Assessment_Security::NONCE_PUBLIC_RECORDING);
+            $security->validate_ajax_request(RA_Security::NONCE_PUBLIC_RECORDING);
             if (!$security->can_record()) {
                 throw new Exception(__('Permission denied', 'reading-assessment'));
             }
@@ -365,7 +365,7 @@ class Reading_Assessment_Public {
         }
 
         // Get questions
-        $db = new Reading_Assessment_Database();
+        $db = new RA_Database();
         $questions = $db->get_questions_for_passage($passage_id);
         // error_log('Raw questions from database: ' . print_r($questions, true));
 
@@ -384,11 +384,11 @@ class Reading_Assessment_Public {
      * AJAX handler for submitting answers with security improvements
      */
     public function ajax_submit_answers() {
-        $security = Reading_Assessment_Security::get_instance();
+        $security = RA_Security::get_instance();
 
         try {
             // Validate request
-            $security->validate_ajax_request(Reading_Assessment_Security::NONCE_PUBLIC_ANSWERS);
+            $security->validate_ajax_request(RA_Security::NONCE_PUBLIC_ANSWERS);
 
             // Validate recording ownership
             $recording_id = absint($_POST['recording_id']);

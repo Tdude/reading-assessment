@@ -9,7 +9,7 @@
  * @subpackage ReadingAssessment/includes
  */
 
-class Reading_Assessment_i18n {
+class RA_i18n {
 
     /**
      * Load the plugin text domain for translation.
