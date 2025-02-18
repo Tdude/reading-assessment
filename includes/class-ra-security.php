@@ -10,10 +10,7 @@ class Reading_Assessment_Security {
     const NONCE_LIFETIME = 12 * HOUR_IN_SECONDS;
 
     // Nonce actions
-	const NONCE_PUBLIC = 'ra_public_nonce';
-    const NONCE_PUBLIC_RECORDING = 'ra_public_recording_nonce';
-    const NONCE_PUBLIC_QUESTIONS = 'ra_public_questions_nonce';
-    const NONCE_PUBLIC_ANSWERS = 'ra_public_answers_nonce';
+	const NONCE_PUBLIC = 'ra_public_action';
 
     public static function get_instance() {
         if (null === self::$instance) {
@@ -34,24 +31,17 @@ class Reading_Assessment_Security {
      * Validate AJAX request with proper error handling
      */
     public function validate_ajax_request($nonce_action, $required_capability = '') {
-        try {
-            // Verify nonce
-            if (!check_ajax_referer($nonce_action, 'nonce', false)) {
-                throw new Exception(__('Invalid security token', 'reading-assessment'));
-            }
-
-            // Check user capabilities if required
-            if (!empty($required_capability) && !current_user_can($required_capability)) {
-                throw new Exception(__('Insufficient permissions', 'reading-assessment'));
-            }
-
-            return true;
-        } catch (Exception $e) {
-            wp_send_json_error([
-                'message' => $e->getMessage(),
-                'code' => 'security_error'
-            ]);
+        // Verify nonce
+        if (!wp_verify_nonce($_POST['nonce'], $nonce_action)) {
+            throw new Exception(__('Invalid security token', 'reading-assessment'));
         }
+
+        // Check user capabilities if required
+        if (!empty($required_capability) && !current_user_can($required_capability)) {
+            throw new Exception(__('Insufficient permissions', 'reading-assessment'));
+        }
+
+        return true;
     }
 
     /**
@@ -89,10 +79,13 @@ class Reading_Assessment_Security {
         $mime_type = finfo_file($finfo, $file['tmp_name']);
         finfo_close($finfo);
 
-        $allowed_types = ['audio/webm', 'audio/ogg', 'audio/wav'];
+        $allowed_types = ['video/webm', 'audio/webm', 'audio/ogg', 'audio/wav'];
         if (!in_array($mime_type, $allowed_types)) {
             throw new Exception(__('Invalid audio file type', 'reading-assessment'));
         }
+
+        error_log('File MIME type: ' . $mime_type);
+        error_log('Allowed types: ' . implode(', ', $allowed_types));
 
         // Validate file size (max 50MB)
         $max_size = 50 * 1024 * 1024;
@@ -143,12 +136,30 @@ class Reading_Assessment_Security {
         global $wpdb;
         $user_id = get_current_user_id();
 
+        if ($user_id === 0) {
+            error_log('No user is currently logged in');
+            throw new Exception(__('User not logged in', 'reading-assessment'));
+        }
+
+        // More detailed query to get full recording information
         $recording = $wpdb->get_row($wpdb->prepare(
-            "SELECT user_id FROM {$wpdb->prefix}ra_recordings WHERE id = %d",
+            "SELECT id, user_id, passage_id, audio_file_path
+             FROM {$wpdb->prefix}ra_recordings
+             WHERE id = %d",
             absint($recording_id)
         ));
 
-        if (!$recording || $recording->user_id !== $user_id) {
+        error_log('Full Recording Query Result: ' . print_r($recording, true));
+
+        if (!$recording) {
+            error_log('No recording found with the given ID');
+            throw new Exception(__('Recording not found', 'reading-assessment'));
+        }
+
+        if ($recording->user_id != $user_id) {
+            error_log('User ID mismatch');
+            error_log('Recording User ID: ' . $recording->user_id);
+            error_log('Current User ID: ' . $user_id);
             throw new Exception(__('Invalid recording access', 'reading-assessment'));
         }
 

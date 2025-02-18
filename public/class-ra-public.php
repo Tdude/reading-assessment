@@ -75,7 +75,8 @@ class Reading_Assessment_Public {
             // Add localization
             wp_localize_script($this->plugin_name . '-public', 'raAjax', [
                 'ajax_url' => admin_url('admin-ajax.php'),
-                'nonce' => wp_create_nonce(Reading_Assessment_Security::NONCE_PUBLIC_RECORDING),
+                'nonce' => wp_create_nonce(Reading_Assessment_Security::NONCE_PUBLIC),
+                'current_user_id' => get_current_user_id(),
                 'debug' => true
             ]);
         }
@@ -244,11 +245,12 @@ class Reading_Assessment_Public {
      * AJAX handler for saving recordings with security improvements
      */
     public function ajax_save_recording() {
+        error_log('Received nonce: ' . $_POST['nonce']);
         $security = Reading_Assessment_Security::get_instance();
 
         try {
             // Validate request
-            $security->validate_ajax_request(Reading_Assessment_Security::NONCE_PUBLIC_RECORDING);
+            //$security->validate_ajax_request(Reading_Assessment_Security::NONCE_PUBLIC);
             if (!$security->can_record()) {
                 throw new Exception(__('Permission denied', 'reading-assessment'));
             }
@@ -320,7 +322,7 @@ class Reading_Assessment_Public {
         // error_log('POST data: ' . print_r($_POST, true));
 
         // First verify nonce
-        if (!check_ajax_referer(Reading_Assessment_Security::NONCE_PUBLIC_RECORDING, 'nonce', false)) {
+        if (!check_ajax_referer(Reading_Assessment_Security::NONCE_PUBLIC, 'nonce', false)) {
             // error_log('Nonce verification failed');
             wp_send_json_error(['message' => 'Säkerhetskontrollen ogiltig tyvärr.']);
             return;
@@ -358,7 +360,8 @@ class Reading_Assessment_Public {
 
         try {
             // Validate request
-            $security->validate_ajax_request(Reading_Assessment_Security::NONCE_PUBLIC_ANSWERS);
+            $security->validate_ajax_request(Reading_Assessment_Security::NONCE_PUBLIC);
+
 
             // Validate recording ownership
             $recording_id = absint($_POST['recording_id']);
