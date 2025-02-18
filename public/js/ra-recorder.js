@@ -1,8 +1,4 @@
-console.log("Global WaveSurfer:", window.WaveSurfer);
-console.log("WaveSurfer type:", typeof window.WaveSurfer);
-console.log("WaveSurfer keys:", Object.keys(window.WaveSurfer));
-console.log("Regions plugin:", window.WaveSurfer.Regions);
-
+//ra-recorder.js
 class ReadingAssessmentRecorder {
   constructor(container) {
     console.log("Initializing ReadingAssessmentRecorder");
@@ -291,7 +287,7 @@ class ReadingAssessmentRecorder {
       // Clean up URL
       URL.revokeObjectURL(audioUrl);
     } catch (error) {
-      console.error("Error updating trimmed audio:", error);
+      console.error("Ett fel uppstod vid uppdatering av trimningen:", error);
       throw error;
     }
   }
@@ -309,6 +305,10 @@ class ReadingAssessmentRecorder {
       return;
     }
 
+    // Start loading animation
+    const dotsAnimation = this.animateLoadingText("Trimmar ljudet");
+    this.trimBtn.disabled = true; // Disable trim button during process
+
     try {
       const trimmedBlob = await this.createTrimmedAudio();
       if (trimmedBlob) {
@@ -317,6 +317,10 @@ class ReadingAssessmentRecorder {
     } catch (error) {
       console.error("Error trimming audio:", error);
       this.status.textContent = "Ett fel uppstod vid trimning av ljudet.";
+    } finally {
+      // Stop the loading animation
+      dotsAnimation();
+      this.trimBtn.disabled = false; // Re-enable trim button
     }
   }
 
@@ -367,13 +371,47 @@ class ReadingAssessmentRecorder {
     });
   }
 
+  animateLoadingText(baseText) {
+    let dots = "";
+    const maxDots = 3;
+    let animationInterval;
+
+    const updateText = () => {
+      dots = dots.length >= maxDots ? "" : dots + ".";
+      this.status.textContent = `${baseText}${dots}`;
+    };
+
+    // Start animation
+    updateText();
+    animationInterval = setInterval(updateText, 500);
+
+    // Return function to stop animation
+    return () => {
+      clearInterval(animationInterval);
+    };
+  }
+
   async uploadRecording() {
-    if (!this.audioBlob) return;
+    if (!this.audioBlob) {
+      this.status.textContent =
+        "Ingen inspelning att ladda upp. Spela in först.";
+      return;
+    }
+
+    // Disable upload button during upload
+    this.uploadBtn.disabled = true;
+
+    // Start loading animation
+    const dotsAnimation = this.animateLoadingText("Laddar upp inspelning");
 
     try {
       const formData = new FormData();
       const currentPassageId =
         document.getElementById("current-passage-id")?.value;
+
+      if (!currentPassageId) {
+        throw new Error("Ingen text vald för uppladdning.");
+      }
 
       formData.append("action", "ra_save_recording");
       formData.append("audio_file", this.audioBlob, "recording.webm");
@@ -390,35 +428,23 @@ class ReadingAssessmentRecorder {
       const data = await response.json();
 
       if (data.success) {
+        console.log("Upload response data:", data);
         this.status.textContent = "Inspelningen har laddats upp.";
+        this.recordingId = data.data.recording_id;
 
-        // Fetch questions
-        const questionsFormData = new FormData();
-        questionsFormData.append("action", "ra_public_get_questions");
-        questionsFormData.append("passage_id", currentPassageId);
-        questionsFormData.append("nonce", raAjax.nonce);
-
-        const questionsResponse = await fetch(raAjax.ajax_url, {
-          method: "POST",
-          body: questionsFormData,
-          credentials: "same-origin",
-        });
-
-        const questionsData = await questionsResponse.json();
-
-        if (questionsData.success) {
-          this.showQuestions(questionsData);
-        } else {
-          console.error("Failed to fetch questions:", questionsData);
-          this.status.textContent =
-            questionsData.data?.message || "Kunde inte hämta frågor.";
-        }
+        // After successful upload, show questions
+        const questions = await this.fetchQuestionsForPassage(currentPassageId);
+        this.showQuestions(questions);
       } else {
         throw new Error(data.data?.message || "Uppladdningen misslyckades");
       }
     } catch (error) {
       console.error("Upload failed:", error);
       this.status.textContent = `Ett fel uppstod vid uppladdningen: ${error.message}`;
+    } finally {
+      // Stop the loading animation
+      dotsAnimation();
+      this.uploadBtn.disabled = false;
     }
   }
 
@@ -461,6 +487,32 @@ class ReadingAssessmentRecorder {
     this.status.textContent = hasValidPassage
       ? "Klicka på 'Spela in' för att börja."
       : "Välj en text innan du börjar spela in.";
+  }
+
+  async fetchQuestionsForPassage(passageId) {
+    try {
+      const formData = new FormData();
+      formData.append("action", "ra_public_get_questions");
+      formData.append("passage_id", passageId);
+      formData.append("nonce", raAjax.nonce);
+
+      const response = await fetch(raAjax.ajax_url, {
+        method: "POST",
+        body: formData,
+        credentials: "same-origin",
+      });
+
+      const data = await response.json();
+
+      if (data.success && data.data) {
+        return data.data;
+      } else {
+        throw new Error(data.data?.message || "Kunde inte hämta frågorna");
+      }
+    } catch (error) {
+      console.error("Error fetching questions:", error);
+      throw error;
+    }
   }
 
   showQuestions(questionsData) {
@@ -508,24 +560,43 @@ class ReadingAssessmentRecorder {
 
   async handleQuestionSubmit(event) {
     event.preventDefault();
-    const form = event.target;
-    const formData = new FormData(form);
 
-    // Prepare answers for submission
-    const answers = {};
-    for (let [key, value] of formData.entries()) {
-      if (key.startsWith("answers[") && key.endsWith("]")) {
-        const questionId = key.match(/\[(\d+)\]/)[1];
-        answers[questionId] = value;
-      }
+    console.log("Submitting answers with recording ID:", this.recordingId);
+    console.log("Current User logged in status:", !!raAjax.current_user_id);
+
+    if (!this.recordingId) {
+      this.status.textContent =
+        "Ingen inspelning hittades. Försök ladda upp igen.";
+      return;
     }
 
+    const form = event.target;
+    const submitButton = form.querySelector('button[type="submit"]');
+    submitButton.disabled = true;
+
     try {
+      const formData = new FormData(form);
+      const answers = {};
+
+      for (let [key, value] of formData.entries()) {
+        if (key.startsWith("answers[") && key.endsWith("]")) {
+          const questionId = key.match(/\[(\d+)\]/)[1];
+          answers[questionId] = value;
+        }
+      }
+
       const submissionData = new FormData();
       submissionData.append("action", "ra_submit_answers");
       submissionData.append("nonce", raAjax.nonce);
-      submissionData.append("recording_id", this.recordingId); // Assumes this is set during recording upload
+      submissionData.append("recording_id", this.recordingId.toString());
       submissionData.append("answers", JSON.stringify(answers));
+
+      console.log("Submission Data:", {
+        action: "ra_submit_answers",
+        nonce: !!raAjax.nonce,
+        recording_id: this.recordingId.toString(),
+        answers_count: Object.keys(answers).length,
+      });
 
       const response = await fetch(raAjax.ajax_url, {
         method: "POST",
@@ -535,19 +606,23 @@ class ReadingAssessmentRecorder {
 
       const data = await response.json();
 
+      console.log("Server Response:", data);
+
       if (data.success) {
-        this.status.textContent = "Svar inskickade.";
+        this.status.textContent = "Dina svar har sparats.";
         form.style.display = "none";
       } else {
-        console.error("Answer submission failed:", data);
-        this.status.textContent =
-          data.data?.message || "Ett fel uppstod vid inskickande av svar.";
+        throw new Error(
+          data.data?.message || "Kunde inte skicka in dina svar."
+        );
       }
     } catch (error) {
       console.error("Error submitting answers:", error);
-      this.status.textContent = "Ett fel uppstod vid inskickande av svar.";
+      this.status.textContent = `Ett fel uppstod vid inskickande av svaren: ${error.message}`;
+      submitButton.disabled = false;
     }
   }
+  // End class and leave this f**ing line alone!
 }
 
 // Recorder Manager to handle initialization
@@ -574,17 +649,12 @@ window.RecorderManager = {
 
 // Modified initialization code
 document.addEventListener("DOMContentLoaded", async function () {
-  console.log("DOM Content Loaded");
-  console.log("Looking for recorder container...");
-
   const container = document.querySelector(".ra-audio-recorder");
   console.log("Recorder container found:", !!container);
 
   if (container) {
     try {
-      console.log("Initializing RecorderManager...");
       await window.RecorderManager.initialize(container);
-      console.log("RecorderManager initialized successfully");
     } catch (error) {
       console.error("Error initializing RecorderManager:", error);
     }
