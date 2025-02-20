@@ -7,7 +7,7 @@
  * @subpackage ReadingAssessment/includes
  */
 
- class Reading_Assessment_AI_Evaluator {
+ class RA_AI_Evaluator {
      private $db;
      private $api_key;
      private $confidence_threshold = 0.85;

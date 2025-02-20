@@ -6,7 +6,7 @@
  * @subpackage ReadingAssessment/public
  */
 
-class Reading_Assessment_Public {
+class RA_Public {
 
     private $plugin_name;
     private $version;
@@ -72,6 +72,9 @@ class Reading_Assessment_Public {
             wp_enqueue_script($this->plugin_name . '-public');
             wp_enqueue_script('ra-recorder');
 
+            // Always enqueue public script and localize it
+            wp_enqueue_script($this->plugin_name . '-public');
+
             // Add localization
             wp_localize_script($this->plugin_name . '-public', 'raAjax', [
                 'ajax_url' => admin_url('admin-ajax.php'),
@@ -80,6 +83,7 @@ class Reading_Assessment_Public {
                 'debug' => true
             ]);
         }
+
     }
 
     /**
@@ -162,9 +166,10 @@ class Reading_Assessment_Public {
     <div id="questions-section" class="ra-questions" style="display: none;">
         <h3><?php _e('Frågor om texten', 'reading-assessment'); ?></h3>
         <?php
-                if ($current_passage_id) {
-                    $db = new Reading_Assessment_Database();
-                    $questions = $db->get_questions_for_passage($current_passage_id);
+            if ($current_passage_id) {
+                $db = new RA_Database();
+                $questions = $db->get_questions_for_passage($current_passage_id);
+
 
                     if ($questions): ?>
         <form id="questions-form" class="ra-questions-form">
@@ -203,7 +208,7 @@ class Reading_Assessment_Public {
         $current_user = wp_get_current_user();
         $nickname = $current_user->nickname ?: $current_user->display_name;
 
-        $db = new Reading_Assessment_Database();
+        $db = new RA_Database();
         $assigned_passages = $db->get_user_assigned_passages($current_user_id);
 
         if (empty($assigned_passages)) {
@@ -245,12 +250,13 @@ class Reading_Assessment_Public {
      * AJAX handler for saving recordings with security improvements
      */
     public function ajax_save_recording() {
-        error_log('Received nonce: ' . $_POST['nonce']);
-        $security = Reading_Assessment_Security::get_instance();
+
+        $security = RA_Security::get_instance();
 
         try {
             // Validate request
-            //$security->validate_ajax_request(Reading_Assessment_Security::NONCE_PUBLIC);
+            //$security->validate_ajax_request(RA_Security::NONCE_PUBLIC);
+
             if (!$security->can_record()) {
                 throw new Exception(__('Permission denied', 'reading-assessment'));
             }
@@ -319,8 +325,6 @@ class Reading_Assessment_Public {
      * AJAX handler for saving recordings with security improvements
      */
     public function ajax_get_questions() {
-        // error_log('POST data: ' . print_r($_POST, true));
-
         // First verify nonce
         if (!check_ajax_referer(Reading_Assessment_Security::NONCE_PUBLIC, 'nonce', false)) {
             // error_log('Nonce verification failed');
@@ -337,7 +341,7 @@ class Reading_Assessment_Public {
         }
 
         // Get questions
-        $db = new Reading_Assessment_Database();
+        $db = new RA_Database();
         $questions = $db->get_questions_for_passage($passage_id);
         // error_log('Raw questions from database: ' . print_r($questions, true));
 
@@ -356,12 +360,11 @@ class Reading_Assessment_Public {
      * AJAX handler for submitting answers with security improvements
      */
     public function ajax_submit_answers() {
-        $security = Reading_Assessment_Security::get_instance();
+        $security = RA_Security::get_instance();
 
         try {
             // Validate request
-            $security->validate_ajax_request(Reading_Assessment_Security::NONCE_PUBLIC);
-
+            $security->validate_ajax_request(RA_Security::NONCE_PUBLIC);
 
             // Validate recording ownership
             $recording_id = absint($_POST['recording_id']);

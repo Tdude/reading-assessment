@@ -5,7 +5,7 @@
  * New class to centralize security operations
  */
 
-class Reading_Assessment_Security {
+class RA_Security {
     private static $instance = null;
     const NONCE_LIFETIME = 12 * HOUR_IN_SECONDS;
 

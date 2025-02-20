@@ -6,7 +6,7 @@
  * @subpackage ReadingAssessment/includes
  */
 
-class Reading_Assessment_Evaluator {
+class RA_Evaluator {
     private $db;
 
     public function __construct() {
@@ -16,7 +16,7 @@ class Reading_Assessment_Evaluator {
 
     // AI evaluation
     public function evaluate_recording($recording_id) {
-        $ai_evaluator = new Reading_Assessment_AI_Evaluator();
+        $ai_evaluator = new RA_AI_Evaluator();
         $ai_result = $ai_evaluator->process_recording($recording_id);
 
         if (!is_wp_error($ai_result)) {
