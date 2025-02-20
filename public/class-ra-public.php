@@ -30,74 +30,60 @@ class RA_Public {
     public function enqueue_scripts() {
         global $post;
 
-        // First register all scripts
-        wp_register_script(
-            $this->plugin_name . '-public',
-            plugin_dir_url(__FILE__) . 'js/ra-public.js',
-            ['jquery'],
-            $this->version,
-            true
-        );
-
-        // Only register recorder-related scripts on the recording page
+        // Only load scripts on the recording page
         if (isset($post) && $post->post_name === 'inspelningsmodul') {
-            // Define paths for local scripts
-            $scripts_path = plugin_dir_path(__FILE__) . 'js/';
-            $scripts_url = plugin_dir_url(__FILE__) . 'js/';
-
-            // Download external scripts if they don't exist locally
-            $external_scripts = [
-                'wavesurfer.min.js' => 'https://cdn.jsdelivr.net/npm/wavesurfer.js@7.0.0/dist/wavesurfer.min.js',
-                'regions.min.js' => 'https://cdn.jsdelivr.net/npm/wavesurfer.js@7.0.0/dist/plugins/regions.min.js'
-            ];
-
-            foreach ($external_scripts as $filename => $url) {
-                if (!file_exists($scripts_path . $filename)) {
-                    $response = wp_remote_get($url);
-                    if (!is_wp_error($response) && wp_remote_retrieve_response_code($response) === 200) {
-                        wp_mkdir_p($scripts_path);
-                        file_put_contents($scripts_path . $filename, wp_remote_retrieve_body($response));
-                    }
-                }
-            }
-
-            // Register WaveSurfer scripts
-            wp_register_script('wavesurfer',
-                $scripts_url . 'wavesurfer.min.js',
+            // Register and enqueue WaveSurfer scripts directly from CDN
+            wp_register_script(
+                'wavesurfer',
+                'https://unpkg.com/wavesurfer.js@6.6.4',
                 [],
-                '7.0.0',
+                '6.6.4',
                 true
             );
 
-            wp_register_script('wavesurfer-regions',
-                $scripts_url . 'regions.min.js',
+            wp_register_script(
+                'wavesurfer-regions',
+                'https://unpkg.com/wavesurfer.js@6.6.4/dist/plugin/wavesurfer.regions.min.js',
                 ['wavesurfer'],
-                '7.0.0',
+                '6.6.4',
                 true
             );
 
-            wp_register_script('ra-recorder',
-                plugin_dir_url(__FILE__) . 'js/ra-recorder.js',
-                ['wavesurfer', 'wavesurfer-regions', $this->plugin_name . '-public'],
+            // Register your custom scripts
+            wp_register_script(
+                $this->plugin_name . '-public',
+                plugin_dir_url(__FILE__) . 'js/ra-public.js',
+                ['jquery', 'wavesurfer', 'wavesurfer-regions'],
                 $this->version,
                 true
             );
 
-            // Enqueue recorder-specific scripts in correct order
+            wp_register_script(
+                'ra-recorder',
+                plugin_dir_url(__FILE__) . 'js/ra-recorder.js',
+                ['jquery', 'wavesurfer', 'wavesurfer-regions', $this->plugin_name . '-public'],
+                $this->version,
+                true
+            );
+
+            // Enqueue all scripts
             wp_enqueue_script('wavesurfer');
             wp_enqueue_script('wavesurfer-regions');
+            wp_enqueue_script($this->plugin_name . '-public');
             wp_enqueue_script('ra-recorder');
+
+            // Always enqueue public script and localize it
+            wp_enqueue_script($this->plugin_name . '-public');
+
+            // Add localization
+            wp_localize_script($this->plugin_name . '-public', 'raAjax', [
+                'ajax_url' => admin_url('admin-ajax.php'),
+                'nonce' => wp_create_nonce(Reading_Assessment_Security::NONCE_PUBLIC),
+                'current_user_id' => get_current_user_id(),
+                'debug' => true
+            ]);
         }
 
-        // Always enqueue public script and localize it
-        wp_enqueue_script($this->plugin_name . '-public');
-
-        // Localize the script once with all needed data
-        wp_localize_script($this->plugin_name . '-public', 'raAjax', [
-            'ajax_url' => admin_url('admin-ajax.php'),
-            'nonce' => wp_create_nonce(RA_Security::NONCE_PUBLIC_QUESTIONS),
-            'debug' => true
-        ]);
     }
 
     /**
@@ -125,7 +111,7 @@ class RA_Public {
     /**
      * Display login success message
      */
-    /*
+
     public function show_login_message() {
         if (isset($_GET['login']) && $_GET['login'] === 'success') {
             ?>
@@ -137,57 +123,46 @@ class RA_Public {
 <?php
         }
     }
-        */
 
-    public function shortcode_audio_recorder() {
-        ob_start();
-        // Get current passage ID
-        $current_passage_id = isset($_GET['passage_id']) ? intval($_GET['passage_id']) : 0;
-        $has_valid_passage = $current_passage_id > 0;
-        ?>
+
+        public function shortcode_audio_recorder() {
+            ob_start();
+            // Get current passage ID
+            $current_passage_id = isset($_GET['passage_id']) ? intval($_GET['passage_id']) : 0;
+            $has_valid_passage = $current_passage_id > 0;
+            ?>
 <div id="audio-recorder" class="ra-audio-recorder">
     <input type="hidden" id="current-passage-id" value="<?php echo esc_attr($current_passage_id); ?>">
-    <!--
-    <?php if (!$has_valid_passage): ?>
-    <div class="ra-warning">
-        Välj en text innan du börjar spela in.
-    </div>
-    <?php endif; ?>
-    -->
+
     <div class="ra-controls <?php echo !$has_valid_passage ? 'ra-controls-disabled' : ''; ?>">
         <button id="start-recording" class="ra-button record" <?php echo !$has_valid_passage ? 'disabled' : ''; ?>>
             <span class="ra-icon">⚫</span>
             <span class="ra-label">Spela in</span>
         </button>
-
         <button id="stop-recording" class="ra-button stop" disabled>
             <span class="ra-icon">⬛</span>
             <span class="ra-label">Stopp</span>
         </button>
-
         <button id="playback" class="ra-button play" disabled>
             <span class="ra-icon">▶</span>
             <span class="ra-label">Spela</span>
         </button>
-
         <button id="trim-audio" class="ra-button trim" disabled>
             <span class="ra-icon">✂️</span>
             <span class="ra-label">Trimma</span>
         </button>
-
         <button id="upload-recording" class="ra-button upload" disabled>
             <span class="ra-icon">⬆️</span>
             <span class="ra-label">Ladda upp</span>
         </button>
     </div>
 
+    <div id="waveform"></div>
 
-    <div id="waveform" class="ra-waveform"></div>
     <p id="status" class="ra-status">
         <?php echo $has_valid_passage ? 'Klicka på \'Spela in\' för att börja.' : 'Välj en text innan du börjar spela in.'; ?>
     </p>
 
-    <!-- Add questions section -->
     <div id="questions-section" class="ra-questions" style="display: none;">
         <h3><?php _e('Frågor om texten', 'reading-assessment'); ?></h3>
         <?php
@@ -195,7 +170,8 @@ class RA_Public {
                 $db = new RA_Database();
                 $questions = $db->get_questions_for_passage($current_passage_id);
 
-                if ($questions): ?>
+
+                    if ($questions): ?>
         <form id="questions-form" class="ra-questions-form">
             <?php foreach ($questions as $question): ?>
             <div class="ra-question-item">
@@ -213,13 +189,13 @@ class RA_Public {
         <?php else: ?>
         <p><?php _e('Inga frågor tillgängliga för denna text.', 'reading-assessment'); ?></p>
         <?php endif;
-                }
-                ?>
+                    }
+                    ?>
     </div>
 </div>
 <?php
-        return ob_get_clean();
-    }
+            return ob_get_clean();
+        }
 
 
     // Here is where we show the text list tied to the user ID
@@ -274,11 +250,13 @@ class RA_Public {
      * AJAX handler for saving recordings with security improvements
      */
     public function ajax_save_recording() {
+
         $security = RA_Security::get_instance();
 
         try {
             // Validate request
-            $security->validate_ajax_request(RA_Security::NONCE_PUBLIC_RECORDING);
+            //$security->validate_ajax_request(RA_Security::NONCE_PUBLIC);
+
             if (!$security->can_record()) {
                 throw new Exception(__('Permission denied', 'reading-assessment'));
             }
@@ -347,10 +325,8 @@ class RA_Public {
      * AJAX handler for saving recordings with security improvements
      */
     public function ajax_get_questions() {
-        // error_log('POST data: ' . print_r($_POST, true));
-
         // First verify nonce
-        if (!check_ajax_referer(NONCE_PUBLIC_QUESTIONS, 'nonce', false)) {
+        if (!check_ajax_referer(Reading_Assessment_Security::NONCE_PUBLIC, 'nonce', false)) {
             // error_log('Nonce verification failed');
             wp_send_json_error(['message' => 'Säkerhetskontrollen ogiltig tyvärr.']);
             return;
@@ -388,7 +364,7 @@ class RA_Public {
 
         try {
             // Validate request
-            $security->validate_ajax_request(RA_Security::NONCE_PUBLIC_ANSWERS);
+            $security->validate_ajax_request(RA_Security::NONCE_PUBLIC);
 
             // Validate recording ownership
             $recording_id = absint($_POST['recording_id']);

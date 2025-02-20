@@ -159,6 +159,7 @@ class RA_Database {
      * @param int $question_id Question ID
      * @return bool|WP_Error True on success, error object on failure
      */
+    /*
     public function delete_question($question_id) {
         try {
             // First, check if there are any responses linked to this question
@@ -191,6 +192,39 @@ class RA_Database {
             return new WP_Error('exception', $e->getMessage());
         }
     }
+*/
+    public function delete_question($question_id) {
+        try {
+            // Start transaction
+            $this->db->query('START TRANSACTION');
+
+            // First delete all responses for this question
+            $this->db->delete(
+                $this->db->prefix . 'ra_responses',
+                array('question_id' => $question_id),
+                array('%d')
+            );
+
+            // Then delete the question
+            $result = $this->db->delete(
+                $this->db->prefix . 'ra_questions',
+                array('id' => $question_id),
+                array('%d')
+            );
+
+            if ($result === false) {
+                $this->db->query('ROLLBACK');
+                return new WP_Error('db_error', __('Failed to delete question.', 'reading-assessment'));
+            }
+
+            $this->db->query('COMMIT');
+            return true;
+        } catch (Exception $e) {
+            $this->db->query('ROLLBACK');
+            return new WP_Error('exception', $e->getMessage());
+        }
+    }
+
 
     /**
      * Get a single question by ID
@@ -199,15 +233,25 @@ class RA_Database {
      * @return object|null Question object or null if not found
      */
     public function get_question($question_id) {
-        return $this->db->get_row(
-            $this->db->prepare(
-                "SELECT q.*, p.title as passage_title
-                FROM {$this->db->prefix}ra_questions q
-                JOIN {$this->db->prefix}ra_passages p ON q.passage_id = p.id
-                WHERE q.id = %d",
-                $question_id
-            )
-        );
+        try {
+            $question = $this->db->get_row(
+                $this->db->prepare(
+                    "SELECT q.*, p.title as passage_title
+                    FROM {$this->db->prefix}ra_questions q
+                    LEFT JOIN {$this->db->prefix}ra_passages p ON q.passage_id = p.id
+                    WHERE q.id = %d",
+                    $question_id
+                )
+            );
+
+            if ($question === null) {
+                return new WP_Error('not_found', __('Question not found.', 'reading-assessment'));
+            }
+
+            return $question;
+        } catch (Exception $e) {
+            return new WP_Error('exception', $e->getMessage());
+        }
     }
 
     /**
@@ -220,10 +264,14 @@ class RA_Database {
         error_log('Fetching recording: ' . $recording_id);
 
         $recording = $this->db->get_row($this->db->prepare(
-            "SELECT r.*, u.ID as user_id
+            "SELECT r.*, u.ID as user_id,
+                    AVG(a.normalized_score) as manual_lus_score,
+                    COUNT(a.id) as assessment_count
              FROM {$this->db->prefix}ra_recordings r
              JOIN {$this->db->users} u ON r.user_id = u.ID
-             WHERE r.id = %d",
+             LEFT JOIN {$this->db->prefix}ra_assessments a ON r.id = a.recording_id
+             WHERE r.id = %d
+             GROUP BY r.id, u.ID",
             $recording_id
         ));
 
@@ -835,11 +883,22 @@ class RA_Database {
      * @return bool|WP_Error True on success, error object on failure
      */
     public function update_passage($passage_id, $data) {
+        // Debug: Log the content before processing
+        error_log('Raw content: ' . $data['content']);
+
+        $content = isset($data['content']) ? $data['content'] : '';
+        // If it's plain text, convert newlines to proper HTML
+        if (strpos($content, '<p>') === false) {
+            $content = wpautop($content);
+        }
+
+        error_log('Processed content: ' . $content);
+
         $result = $this->db->update(
             $this->db->prefix . 'ra_passages',
             array(
-                'title' => $data['title'],
-                'content' => $data['content'],
+                'title' => wp_kses_post($data['title']),
+                'content' => $content,  // Don't process it further
                 'time_limit' => $data['time_limit'],
                 'difficulty_level' => isset($data['difficulty_level']) ? absint($data['difficulty_level']) : 1,
                 'updated_at' => current_time('mysql')
@@ -1222,7 +1281,7 @@ class RA_Database {
      *
      * @return object Statistics object with overall metrics
      */
-    public function get_system_overview() {
+    public function get_overall_statistics() {
         $query = "
             SELECT
                 (SELECT COUNT(*) FROM {$this->db->prefix}ra_passages) as total_passages,

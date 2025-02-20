@@ -11,7 +11,7 @@
  * Plugin Name: Reading Assessment
  * Plugin URI:  https://example.com/plugins/reading-assessment
  * Description: A plugin for recording and evaluating reading comprehension
- * Version:     1.0.4
+ * Version:     1.0.5
  * Author:      Tibor Berki
  * Author URI:  https://klickomaten.com
  * Text Domain: reading-assessment
@@ -25,7 +25,7 @@ if (!defined('WPINC')) {
 }
 
 // Plugin version
-define('RA_VERSION', '1.0.4');
+define('RA_VERSION', '1.0.5');
 define('RA_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('RA_PLUGIN_URL', plugin_dir_url(__FILE__));
 
