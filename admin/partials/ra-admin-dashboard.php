@@ -6,7 +6,7 @@ if (!defined('WPINC')) {
     die;
 }
 
-class Reading_Assessment_Dashboard_Admin {
+class RA_Dashboard_Admin {
     private $db;
     public $messages = array();
     private $plugin_name;
@@ -30,7 +30,7 @@ class Reading_Assessment_Dashboard_Admin {
     }
 
     public function handle_ai_processing($recording_id) {
-        $ai_evaluator = new Reading_Assessment_AI_Evaluator();
+        $ai_evaluator = new RA_AI_Evaluator();
         $result = $ai_evaluator->process_recording($recording_id);
 
         if (is_wp_error($result)) {

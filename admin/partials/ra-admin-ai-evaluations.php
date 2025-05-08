@@ -9,7 +9,7 @@ if (!defined('WPINC')) {
     die;
 }
 
-class Reading_Assessment_AI_Evaluations_Admin {
+class RA_AI_Evaluations_Admin {
     private $db;
     private $plugin_name;
     private $version;

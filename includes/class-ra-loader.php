@@ -6,7 +6,7 @@
  * @subpackage ReadingAssessment/includes
  */
 
-class Reading_Assessment_Loader {
+class RA_Loader {
 
     /**
      * The array of actions registered with WordPress.
@@ -47,7 +47,7 @@ class Reading_Assessment_Loader {
      * Add a new filter to the collection to be registered with WordPress.
      *
      * @param    string    $hook             The name of the WordPress filter that is being registered.
-     * @param    object    $component        A reference to the instance of the object on which the filter is defined.
+     * @param    object    $component        A reference to the instance of the instance on which the filter is defined.
      * @param    string    $callback         The name of the function definition on the $component.
      * @param    int       $priority         Optional. The priority at which the function should be fired. Default is 10.
      * @param    int       $accepted_args    Optional. The number of arguments that should be passed to the $callback. Default is 1.

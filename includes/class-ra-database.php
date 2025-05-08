@@ -6,7 +6,7 @@
  * @package ReadingAssessment
  * @subpackage ReadingAssessment/includes
  */
-class Reading_Assessment_Database {
+class RA_Database {
     private $db;
 
     public function __construct() {

@@ -13,19 +13,19 @@ if (!defined('WPINC')) {
 error_log('Starting ra-admin-results.php');
 
 // Exit if the class is already defined
-if (class_exists('Reading_Assessment_Results_Admin')) {
-    error_log('Reading_Assessment_Results_Admin class already exists - skipping definition');
+if (class_exists('RA_Results_Admin')) {
+    error_log('RA_Results_Admin class already exists - skipping definition');
     return;
 }
 
-class Reading_Assessment_Results_Admin {
+class RA_Results_Admin {
     private $db;
     private $plugin_name;
     private $version;
     private $stats;
 
     public function __construct($db, $plugin_name, $version) {
-        error_log('Constructing Reading_Assessment_Results_Admin');
+        error_log('Constructing RA_Results_Admin');
 
         if (!class_exists('RA_Statistics')) {
             error_log('Loading RA_Statistics');
@@ -39,7 +39,7 @@ class Reading_Assessment_Results_Admin {
     }
 
     public function render_page() {
-        error_log('Starting render_page in Reading_Assessment_Results_Admin');
+        error_log('Starting render_page in RA_Results_Admin');
 
         // Get filter values
         $passage_id = isset($_GET['passage_id']) ? intval($_GET['passage_id']) : 0;

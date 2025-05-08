@@ -18,21 +18,21 @@ require_once plugin_dir_path(__DIR__) . 'includes/class-ra-utilities.php';
 
 
 
-class Reading_Assessment_Admin {
+class RA_Admin {
     private static $initialized = false;
     private $nonce_key = 'ra_admin_action';
     private $plugin_name;
     private $version;
     private $db;
-    private Reading_Assessment_Dashboard_Admin $dashboard_admin;
-    private Reading_Assessment_Questions_Admin $questions_admin;
-    private Reading_Assessment_Assignments_Admin $assignments_admin;
-    private Reading_Assessment_Results_Admin $results_admin;
-    private Reading_Assessment_AI_Evaluations_Admin $ai_evaluations_admin;
+    private RA_Dashboard_Admin $dashboard_admin;
+    private RA_Questions_Admin $questions_admin;
+    private RA_Assignments_Admin $assignments_admin;
+    private RA_Results_Admin $results_admin;
+    private RA_AI_Evaluations_Admin $ai_evaluations_admin;
 
     public function __construct($plugin_name, $version) {
         if (self::$initialized) {
-            error_log('Reading_Assessment_Admin already initialized');
+            error_log('RA_Admin already initialized');
             return;
         }
 
@@ -40,42 +40,42 @@ class Reading_Assessment_Admin {
 
         $this->plugin_name = $plugin_name;
         $this->version = $version;
-        $this->db = new Reading_Assessment_Database();
+        $this->db = new RA_Database();
 
         error_log('Main Admin Constructor: Setting up assignments');
 
         // Initialize AI evaluations admin
-        $this->ai_evaluations_admin = new Reading_Assessment_AI_Evaluations_Admin(
+        $this->ai_evaluations_admin = new RA_AI_Evaluations_Admin(
             $this->db,
             $plugin_name,
             $version
         );
 
-        $this->results_admin = new Reading_Assessment_Results_Admin(
+        $this->results_admin = new RA_Results_Admin(
             $this->db,
             $plugin_name,
             $version
         );
 
-        $this->dashboard_admin = new Reading_Assessment_Dashboard_Admin(
+        $this->dashboard_admin = new RA_Dashboard_Admin(
             $this->db,
             $plugin_name,
             $version
         );
 
-        $this->assignments_admin = new Reading_Assessment_Assignments_Admin(
+        $this->assignments_admin = new RA_Assignments_Admin(
             $this->db,
             $plugin_name,
             $version
         );
 
-        $this->questions_admin = new Reading_Assessment_Questions_Admin(
+        $this->questions_admin = new RA_Questions_Admin(
             $this->db,
             $plugin_name,
             $version
         );
 
-        $this->results_admin = new Reading_Assessment_Results_Admin(
+        $this->results_admin = new RA_Results_Admin(
             $this->db,
             $plugin_name,
             $version
@@ -235,7 +235,7 @@ class Reading_Assessment_Admin {
 
         // Only add repair tool if there are orphaned recordings
         /*
-        $ra_db = new Reading_Assessment_Database();
+        $ra_db = new RA_Database();
         if ($ra_db->get_total_orphaned_recordings() > 0) {
             add_submenu_page(
                 'reading-assessment',
@@ -500,7 +500,7 @@ class Reading_Assessment_Admin {
         error_log('Processing recording ID: ' . $recording_id);
 
         try {
-            $db = new Reading_Assessment_Database();
+            $db = new RA_Database();
             $recording = $db->get_recording($recording_id);
 
             if (!$recording) {
@@ -560,7 +560,7 @@ class Reading_Assessment_Admin {
 
         try {
             // Create AI evaluator instance
-            $ai_evaluator = new Reading_Assessment_AI_Evaluator();
+            $ai_evaluator = new RA_AI_Evaluator();
 
             // Process the recording
             $result = $ai_evaluator->process_recording($recording_id);
@@ -716,7 +716,7 @@ class Reading_Assessment_Admin {
             error_log('Found recording: ' . print_r($recording, true));
 
             // Create AI evaluator instance
-            $ai_evaluator = new Reading_Assessment_AI_Evaluator();
+            $ai_evaluator = new RA_AI_Evaluator();
 
             // First handle transcription if needed
             $transcription_result = $ai_evaluator->process_recording($recording_id);
@@ -937,7 +937,7 @@ class Reading_Assessment_Admin {
 
     public function render_ai_evaluations_page() {
         require_once plugin_dir_path(__FILE__) . 'partials/ra-admin-ai-evaluations.php';
-        $ai_evaluations_admin = new Reading_Assessment_AI_Evaluations_Admin($this->db);
+        $ai_evaluations_admin = new RA_AI_Evaluations_Admin($this->db);
         $ai_evaluations_admin->render_page();
     }
 }

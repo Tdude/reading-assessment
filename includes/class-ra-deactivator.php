@@ -6,7 +6,7 @@
  * @subpackage ReadingAssessment/includes
  */
 
-class Reading_Assessment_Deactivator {
+class RA_Deactivator {
     /**
      * Remove plugin tables and options during deactivation
      */

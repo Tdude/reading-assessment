@@ -6,7 +6,7 @@ if (!defined('WPINC')) {
     die;
 }
 $debug_mode = WP_DEBUG && current_user_can('manage_options');
-$ra_db = new Reading_Assessment_Database();
+$ra_db = new RA_Database();
 $passages = $ra_db->get_all_passages();
 
 // Handle bulk assignment
