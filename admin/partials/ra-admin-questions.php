@@ -4,7 +4,7 @@ if (!defined('WPINC')) {
     die;
 }
 
-class Reading_Assessment_Questions_Admin {
+class RA_Questions_Admin {
     private $db;
     public $messages = array();
     private $plugin_name;
@@ -13,7 +13,7 @@ class Reading_Assessment_Questions_Admin {
     public function __construct($plugin_name, $version) { // ERROR
         $this->plugin_name = $plugin_name;
         $this->version = $version;
-        $this->db = new Reading_Assessment_Database();
+        $this->db = new RA_Database();
         $this->init_hooks();
     }
 

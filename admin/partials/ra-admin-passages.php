@@ -9,7 +9,7 @@ $test_query = "SELECT COUNT(*) as total FROM {$wpdb->prefix}ra_recordings";
 $total_recordings = $wpdb->get_var($test_query);
 
 // Get database instance
-$ra_db = new Reading_Assessment_Database();
+$ra_db = new RA_Database();
 
 // Handle form submission
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ra_passage_nonce'])) {

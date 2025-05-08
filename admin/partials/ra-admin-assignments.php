@@ -9,7 +9,7 @@ if (!defined('WPINC')) {
     die;
 }
 
-class Reading_Assessment_Assignments_Admin {
+class RA_Assignments_Admin {
     private $db;
     public $messages = array();
     private $plugin_name;

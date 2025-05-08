@@ -210,7 +210,7 @@ $upload_dir = wp_upload_dir();
                             );
 
                             // Generate colors for the number of segments we have
-                            $utils = Reading_Assessment_Utilities::get_instance();
+                            $utils = RA_Utilities::get_instance();
                             $colors = $utils->generate_colors(count($angles), 60, 65);
 
                             $start_angle = 0;
@@ -290,7 +290,7 @@ $upload_dir = wp_upload_dir();
 
                         if ($total_recordings > 0):
                             // Generate colors for the number of passages
-                            $utils = Reading_Assessment_Utilities::get_instance();
+                            $utils = RA_Utilities::get_instance();
                             $colors = $utils->generate_colors(count($recordings_per_passage), 60, 65);
                             $start_angle = 0;
 

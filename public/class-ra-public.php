@@ -359,7 +359,7 @@ class RA_Public {
             }
 
             // Get questions
-            $db = new Reading_Assessment_Database();
+            $db = new RA_Database();
             $questions = $db->get_questions_for_passage($passage_id);
 
             if (empty($questions)) {

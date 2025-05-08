@@ -36,7 +36,7 @@ define('RA_PLUGIN_URL', plugin_dir_url(__FILE__));
  */
 function activate_reading_assessment() {
     require_once RA_PLUGIN_DIR . 'includes/class-ra-activator.php';
-    Reading_Assessment_Activator::activate();
+    RA_Activator::activate();
 }
 
 /**
@@ -44,7 +44,7 @@ function activate_reading_assessment() {
  */
 function deactivate_reading_assessment() {
     require_once RA_PLUGIN_DIR . 'includes/class-ra-deactivator.php';
-    Reading_Assessment_Deactivator::deactivate();
+    RA_Deactivator::deactivate();
 }
 
 
@@ -65,7 +65,7 @@ require_once RA_PLUGIN_DIR . 'includes/class-reading-assessment.php';
  * Begins execution of the plugin.
  */
 function run_reading_assessment() {
-    $plugin = new Reading_Assessment();
+    $plugin = new RA();
     $plugin->run();
 }
 run_reading_assessment();

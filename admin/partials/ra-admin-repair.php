@@ -3,7 +3,7 @@ if (!defined('WPINC')) {
     die;
 }
 
-$ra_db = new Reading_Assessment_Database();
+$ra_db = new RA_Database();
 
 // Handle form submission
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ra_repair_nonce'])) {
