@@ -145,6 +145,28 @@ class Reading_Assessment_Activator
             error_log("Upgrade to version 1.4 completed.");
         }
 
+        // Upgrade to 1.5 - Add user_grade column to ra_recordings
+        if (version_compare($current_db_version, '1.5', '<')) {
+            $table_name = $wpdb->prefix . 'ra_recordings';
+            error_log("Starting upgrade to version 1.5 for user_grade...");
+
+            if (!$column_exists($table_name, 'user_grade')) {
+                $wpdb->query("ALTER TABLE {$table_name}
+                    ADD COLUMN user_grade VARCHAR(50) NULL DEFAULT NULL AFTER passage_id");
+
+                if ($wpdb->last_error) {
+                    error_log("Failed to add user_grade column to {$table_name}: " . $wpdb->last_error);
+                    // Optionally return false or throw an exception if critical
+                } else {
+                    error_log("Added user_grade column to {$table_name}.");
+                }
+            } else {
+                error_log("No changes needed for version 1.5 - user_grade column already exists in {$table_name}.");
+            }
+            update_option('ra_db_version', '1.5');
+            error_log("Upgrade to version 1.5 completed.");
+        }
+
     }
 
     /**
@@ -176,6 +198,7 @@ class Reading_Assessment_Activator
                 id bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT,
                 user_id bigint(20) UNSIGNED NOT NULL,
                 passage_id bigint(20) UNSIGNED NOT NULL,
+                user_grade VARCHAR(50) NULL DEFAULT NULL,
                 audio_file_path varchar(255) NOT NULL,
                 transcription TEXT NULL DEFAULT NULL,
                 duration int(11) NOT NULL,

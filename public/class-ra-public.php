@@ -130,6 +130,12 @@ class Reading_Assessment_Public {
 <div id="audio-recorder" class="ra-audio-recorder">
     <input type="hidden" id="current-passage-id" value="<?php echo esc_attr($current_passage_id); ?>">
 
+    <!-- User Grade Input -->
+    <div class="ra-input-group">
+        <label for="user-grade"><?php _e('Årskurs:', 'reading-assessment'); ?></label>
+        <input type="text" id="user-grade" name="user_grade" class="ra-user-grade-input" placeholder="T.ex. 3, 4A, etc.">
+    </div>
+
     <div class="ra-controls <?php echo !$has_valid_passage ? 'ra-controls-disabled' : ''; ?>">
         <button id="start-recording" class="ra-button record" <?php echo !$has_valid_passage ? 'disabled' : ''; ?>>
             <span class="ra-icon">⚫</span>
@@ -245,18 +251,24 @@ class Reading_Assessment_Public {
      * AJAX handler for saving recordings with security improvements
      */
     public function ajax_save_recording() {
-        error_log('Received nonce: ' . $_POST['nonce']);
+        error_log('Received nonce: ' . (isset($_POST['nonce']) ? $_POST['nonce'] : 'Not set'));
         $security = Reading_Assessment_Security::get_instance();
 
         try {
             // Validate request
-            //$security->validate_ajax_request(Reading_Assessment_Security::NONCE_PUBLIC);
+            $security->validate_ajax_request(Reading_Assessment_Security::NONCE_PUBLIC, 'nonce');
             if (!$security->can_record()) {
                 throw new Exception(__('Permission denied', 'reading-assessment'));
             }
 
             // Validate passage
             $passage_id = $security->validate_passage_id($_POST['passage_id']);
+
+            // Get and sanitize user_grade
+            $user_grade = null;
+            if (isset($_POST['user_grade']) && !empty(trim($_POST['user_grade']))) {
+                $user_grade = sanitize_text_field(wp_unslash($_POST['user_grade']));
+            }
 
             // Validate file
             if (!isset($_FILES['audio_file'])) {
@@ -268,7 +280,10 @@ class Reading_Assessment_Public {
             $upload_dir = wp_upload_dir();
             $year = date('Y');
             $month = date('m');
-            $filename = $security->generate_secure_filename();
+            // Get current user ID
+            $user_id = get_current_user_id(); 
+            // The user_grade is already sanitized and available from previous steps
+            $filename = $security->generate_secure_filename($user_id, $user_grade, 'wav');
             $target_dir = $upload_dir['basedir'] . '/reading-assessment/' . $year . '/' . $month;
 
             // Ensure directory exists with proper permissions
@@ -291,21 +306,27 @@ class Reading_Assessment_Public {
                 [
                     'user_id' => get_current_user_id(),
                     'passage_id' => $passage_id,
-                    'audio_file_path' => '/reading-assessment/' . $year . '/' . $month . '/' . $filename,
+                    'user_grade' => $user_grade, 
+                    'audio_file_path' => '/reading-assessment/' . $year . '/' . $month . '/' . $filename, // Ensure this path matches how files are stored and retrieved
                     'duration' => floatval($_POST['duration']),
                     'created_at' => current_time('mysql')
                 ],
-                ['%d', '%d', '%s', '%f', '%s']
+                ['%d', '%d', '%s', '%s', '%f', '%s']
             );
 
             if ($result === false) {
                 throw new Exception(__('Database error', 'reading-assessment'));
             }
 
-            wp_send_json_success([
-                'message' => __('Recording saved successfully', 'reading-assessment'),
-                'recording_id' => $wpdb->insert_id
-            ]);
+            $response_data = [
+                'message' => __('Recording saved successfully.', 'reading-assessment'),
+                'recording_id' => $wpdb->insert_id,
+                'new_nonce' => wp_create_nonce(Reading_Assessment_Security::NONCE_PUBLIC),
+                'questions_optional' => (bool) get_option('ra_allow_public_recordings_without_questions', false)
+            ];
+
+            // Optionally log the response data for debugging
+            wp_send_json_success($response_data);
 
         } catch (Exception $e) {
             wp_send_json_error([
@@ -319,36 +340,32 @@ class Reading_Assessment_Public {
      * AJAX handler for saving recordings with security improvements
      */
     public function ajax_get_questions() {
-        // error_log('POST data: ' . print_r($_POST, true));
+        $security = Reading_Assessment_Security::get_instance();
+        try {
+            // First verify nonce
+            $security->validate_ajax_request(Reading_Assessment_Security::NONCE_PUBLIC, 'nonce');
 
-        // First verify nonce
-        if (!check_ajax_referer(Reading_Assessment_Security::NONCE_PUBLIC, 'nonce', false)) {
-            // error_log('Nonce verification failed');
-            wp_send_json_error(['message' => 'Säkerhetskontrollen ogiltig tyvärr.']);
-            return;
+            // Get and validate passage_id
+            $passage_id = isset($_POST['passage_id']) ? absint($_POST['passage_id']) : 0;
+
+            if (!$passage_id || $passage_id === 0) {
+                wp_send_json_error(['message' => 'Ogiltigt text ID. Du behöver få en text av en adinistratör att läsa upp.']);
+                return; // Important to return after wp_send_json_error
+            }
+
+            // Get questions
+            $db = new Reading_Assessment_Database();
+            $questions = $db->get_questions_for_passage($passage_id);
+
+            if (empty($questions)) {
+                wp_send_json_error(['message' => 'Inga frågor kunde hittas om denna text.']);
+                return; // Important to return
+            }
+
+            wp_send_json_success($questions);
+        } catch (Exception $e) {
+            wp_send_json_error(['message' => $e->getMessage()]);
         }
-
-        // Get and validate passage_id
-        $passage_id = isset($_POST['passage_id']) ? absint($_POST['passage_id']) : 0;
-
-        if (!$passage_id || $passage_id === 0) {
-            wp_send_json_error(['message' => 'Ogiltigt text ID. Du behöver få en text av en adinistratör att läsa upp.']);
-            return;
-        }
-
-        // Get questions
-        $db = new Reading_Assessment_Database();
-        $questions = $db->get_questions_for_passage($passage_id);
-        // error_log('Raw questions from database: ' . print_r($questions, true));
-
-        if (empty($questions)) {
-            wp_send_json_error(['message' => 'Inga frågor kunde hittas om denna text.']);
-            return;
-        }
-
-        // Send the questions directly
-        wp_send_json_success($questions);
-        // error_log('===== END ajax_get_questions =====');
     }
 
 
@@ -360,8 +377,7 @@ class Reading_Assessment_Public {
 
         try {
             // Validate request
-            $security->validate_ajax_request(Reading_Assessment_Security::NONCE_PUBLIC);
-
+            $security->validate_ajax_request(Reading_Assessment_Security::NONCE_PUBLIC, 'nonce');
 
             // Validate recording ownership
             $recording_id = absint($_POST['recording_id']);

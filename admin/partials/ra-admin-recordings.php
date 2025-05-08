@@ -142,7 +142,7 @@ $total_pages = ceil($total_unassigned / $per_page);
                     <td><?php
                         if (file_exists($file_system_path)): ?>
                         <audio controls style="max-width: 250px;">
-                            <source src="<?php echo esc_url($file_path); ?>" type="audio/webm">
+                            <source src="<?php echo esc_url($file_path); ?>" type="audio/wav">
                         </audio>
                         <?php else: ?>
                         <span class="error-text"><?php _e('Ljudfil saknas', 'reading-assessment'); ?></span>

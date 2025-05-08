@@ -419,6 +419,12 @@ class ReadingAssessmentRecorder {
       formData.append("duration", this.wavesurfer.getDuration().toString());
       formData.append("nonce", raAjax.nonce);
 
+      // Get user grade value
+      const userGradeInput = document.getElementById('user-grade');
+      if (userGradeInput) {
+        formData.append("user_grade", userGradeInput.value.trim());
+      }
+
       const response = await fetch(raAjax.ajax_url, {
         method: "POST",
         body: formData,
@@ -432,9 +438,27 @@ class ReadingAssessmentRecorder {
         this.status.textContent = "Inspelningen har laddats upp.";
         this.recordingId = data.data.recording_id;
 
-        // After successful upload, show questions
-        const questions = await this.fetchQuestionsForPassage(currentPassageId);
-        this.showQuestions(questions);
+        // Update nonce for subsequent requests
+        if (data.data && data.data.new_nonce) {
+          raAjax.nonce = data.data.new_nonce;
+          console.log("New nonce received and updated:", raAjax.nonce);
+        } else {
+          console.warn("New nonce was not provided in the upload response.");
+        }
+
+        // Check if questions are optional
+        if (data.data && data.data.questions_optional === true) {
+          console.log("Questions are optional, skipping fetching questions.");
+          this.status.textContent = "Inga frågor krävs.";
+          // Potentially hide the questions section or enable a 'finish' button directly
+          this.passageSelector.disabled = false;
+          this.recordButton.disabled = false;
+          // Reset UI for new recording if desired
+        } else {
+          // After successful upload, show questions (if not optional)
+          const questions = await this.fetchQuestionsForPassage(currentPassageId);
+          this.showQuestions(questions);
+        }
       } else {
         throw new Error(data.data?.message || "Uppladdningen misslyckades");
       }

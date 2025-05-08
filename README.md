@@ -3,6 +3,11 @@
 This is a show-text, voice recording, save scores plugin for Wordpress
 You can run it as-is or hook up Groq and/or OpenAI's Whisper to get decent evaluations for read voice. For that you need an API key or run your own at AWS or so.
 
+## @TODO: Check out the Gemini docs
+
+Attach Gemini as a backup AI or use it for re-evaluating sound? 3 lines of code...?
+https://ai.google.dev/gemini-api/docs/openai
+
 ## Claude AI 2024 evaluation
 
 Looking at your admin.js code and the associated PHP files, there's definitely an opportunity to create a more generic and maintainable solution.
@@ -37,7 +42,7 @@ Then a 2025 Copilot description:
 ### Recording Audio
 
 1. Users can record their audio responses directly on the passage page.
-2. The recording is automatically uploaded and saved.
+2. The recording can be listened to, trimmed and be uploaded/saved. Currently all texts need to have questions/answers set to them for the upload to work, since the functions "ask" for the existence of questions.
 
 ### Evaluating Comprehension
 

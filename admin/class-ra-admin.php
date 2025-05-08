@@ -760,6 +760,13 @@ class Reading_Assessment_Admin {
             'default' => true
         ]);
 
+        // New setting for allowing recordings without questions
+        register_setting('reading-assessment', 'ra_allow_public_recordings_without_questions', [
+            'type' => 'boolean',
+            'default' => false, // Default to false, questions are required
+            'sanitize_callback' => 'rest_sanitize_boolean'
+        ]);
+
         // AI Provider Settings
         register_setting('reading-assessment', 'ra_enable_ai_evaluation', [
             'type' => 'boolean',
@@ -839,6 +846,23 @@ class Reading_Assessment_Admin {
             'reading-assessment',
             'ra_ai_settings'
         );
+
+        // Public Recording Settings Section
+        add_settings_section(
+            'ra_public_settings_section',
+            __('Inställningar för offentliga inspelningar', 'reading-assessment'),
+            [$this, 'render_public_settings_section_cb'],
+            'reading-assessment'
+        );
+
+        // Field for allowing recordings without questions
+        add_settings_field(
+            'ra_allow_public_recordings_without_questions',
+            __('Tillåt inspelningar utan frågor', 'reading-assessment'),
+            [$this, 'render_allow_public_recordings_without_questions_field_cb'],
+            'reading-assessment',
+            'ra_public_settings_section'
+        );
     }
 
     public function render_openai_fields() {
@@ -869,6 +893,18 @@ class Reading_Assessment_Admin {
         echo '<label>' . __('Aktivera Groq', 'reading-assessment') . '</label>';
         echo '<input type="password" name="ra_groq_api_key" value="' . esc_attr($api_key) . '" class="regular-text">';
         echo '<p class="description">' . __('Din Groq API-nyckel', 'reading-assessment') . '</p>';
+    }
+
+    // Callback for the public settings section description
+    public function render_public_settings_section_cb() {
+        echo '<p>' . __('Ställ in alternativ för hur inspelningar hanteras på den publika sidan.', 'reading-assessment') . '</p>';
+    }
+
+    // Callback for the 'allow recordings without questions' field
+    public function render_allow_public_recordings_without_questions_field_cb() {
+        $option_value = get_option('ra_allow_public_recordings_without_questions', false); // Default to false
+        echo '<input type="checkbox" name="ra_allow_public_recordings_without_questions" value="1" ' . checked(1, $option_value, false) . '/>';
+        echo '<p class="description">' . __('Om detta är ikryssat kan användare spela in och skicka in ljud utan att svara på frågor. Annars måste frågor alltid besvaras.', 'reading-assessment') . '</p>';
     }
 
     public function render_tracking_section() {

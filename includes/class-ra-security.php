@@ -30,10 +30,10 @@ class Reading_Assessment_Security {
     /**
      * Validate AJAX request with proper error handling
      */
-    public function validate_ajax_request($nonce_action, $required_capability = '') {
+    public function validate_ajax_request($nonce_action, $nonce_key = 'nonce', $required_capability = '') {
         // Verify nonce
-        if (!wp_verify_nonce($_POST['nonce'], $nonce_action)) {
-            throw new Exception(__('Invalid security token', 'reading-assessment'));
+        if (!isset($_REQUEST[$nonce_key]) || !wp_verify_nonce(sanitize_text_field(wp_unslash($_REQUEST[$nonce_key])), $nonce_action)) {
+            throw new Exception(sprintf(__('Invalid security token for action: %s', 'reading-assessment'), $nonce_action));
         }
 
         // Check user capabilities if required
@@ -119,14 +119,38 @@ class Reading_Assessment_Security {
 
     /**
      * Generate secure filename for audio uploads
+     * @param int $user_id The user ID.
+     * @param string|null $user_grade The user's grade. Can be null.
+     * @param string $extension The file extension.
+     * @return string The generated filename.
      */
-    public function generate_secure_filename($extension = 'webm') {
+    public function generate_secure_filename($user_id, $user_grade = null, $extension = 'wav') {
+        $timestamp = current_time('timestamp');
+        $date_str = date('Ymd', $timestamp);
+        $time_str = date('His', $timestamp);
+
+        $grade_part = 'na'; // Default if grade is not provided or empty
+        if (!empty(trim((string)$user_grade))) {
+            // Sanitize grade for filename: remove spaces and special characters, convert to lowercase
+            $grade_part = preg_replace('/[^a-zA-Z0-9_-]/', '', str_replace(' ', '-', strtolower(trim((string)$user_grade))));
+        }
+
         return sprintf(
-            'recording_%s_%s.%s',
-            wp_generate_password(12, false),
-            time(),
+            'user%d_%s_date%s_time%s.%s',
+            (int)$user_id,
+            $grade_part,
+            $date_str,
+            $time_str,
             sanitize_file_name($extension)
         );
+    }
+
+    /**
+     * Validate user capabilities for recording.
+     */
+    public function can_record() {
+        return is_user_logged_in() &&
+               (current_user_can('read') || current_user_can('subscriber'));
     }
 
     /**

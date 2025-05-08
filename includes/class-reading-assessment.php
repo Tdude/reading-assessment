@@ -90,7 +90,7 @@ class Reading_Assessment {
         $this->loader->add_action('wp_enqueue_scripts', $plugin_public, 'enqueue_scripts');
         $this->loader->add_action('init', $plugin_public, 'register_shortcodes');
 
-        // Public AJAX handlers - note the 'public_' prefix for clarity
+        // Public AJAX handlers - note the 'public_' prefix for clarity :)
         $this->loader->add_action('wp_ajax_ra_public_get_questions', $plugin_public, 'ajax_get_questions');
         $this->loader->add_action('wp_ajax_nopriv_ra_public_get_questions', $plugin_public, 'ajax_get_questions');
         $this->loader->add_action('wp_ajax_ra_save_recording', $plugin_public, 'ajax_save_recording');
