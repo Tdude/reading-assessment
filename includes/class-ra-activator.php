@@ -117,7 +117,7 @@ class RA_Activator
             error_log("Starting upgrade to version 1.4...");
 
             // Add transcription column if it doesn't exist
-            $column_exists = $wpdb->get_results($wpdb->prepare(
+            $transcription_column_check_result = $wpdb->get_results($wpdb->prepare(
                 "SELECT COLUMN_NAME
                 FROM INFORMATION_SCHEMA.COLUMNS
                 WHERE TABLE_SCHEMA = %s
@@ -127,7 +127,7 @@ class RA_Activator
                 $table_name
             ));
 
-            if (empty($column_exists)) {
+            if (empty($transcription_column_check_result)) {
                 $wpdb->query("ALTER TABLE {$table_name}
                     ADD COLUMN transcription TEXT NULL DEFAULT NULL
                     AFTER audio_file_path");

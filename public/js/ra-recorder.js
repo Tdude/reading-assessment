@@ -217,6 +217,7 @@ class ReadingAssessmentRecorder {
       this.updateUIForRecording(false);
       this.playBtn.disabled = false;
       this.trimBtn.disabled = false;
+      this.uploadBtn.disabled = false; // Enable upload button here
 
       // Clean up URL
       URL.revokeObjectURL(audioUrl);

@@ -137,7 +137,7 @@ class RA_Public {
     <!-- User Grade Input -->
     <div class="ra-input-group">
         <label for="user-grade"><?php _e('Årskurs:', 'reading-assessment'); ?></label>
-        <input type="text" id="user-grade" name="user_grade" class="ra-user-grade-input" placeholder="T.ex. 3, 4A, etc.">
+        <input type="text" id="user-grade" name="user_grade" class="ra-user-grade-input" placeholder="Ex. 3, 4A, Mellanstadiet, etc. Det kommer med i filnamnet">
     </div>
 
     <div class="ra-controls <?php echo !$has_valid_passage ? 'ra-controls-disabled' : ''; ?>">
@@ -212,36 +212,47 @@ class RA_Public {
         }
 
         $current_user = wp_get_current_user();
+        $db = new RA_Database();
+        $is_admin = in_array('administrator', (array) $current_user->roles);
         $nickname = $current_user->nickname ?: $current_user->display_name;
 
-        $db = new RA_Database();
-        $assigned_passages = $db->get_user_assigned_passages($current_user_id);
+        if ($is_admin) {
+            $passages = $db->get_all_passages();
+            $heading_text = __('Tillgängliga texter', 'reading-assessment');
+        } else {
+            $passages = $db->get_user_assigned_passages($current_user_id);
+            $heading_text = sprintf(__('Texter tilldelade till %s', 'reading-assessment'), esc_html($nickname));
+        }
 
-        if (empty($assigned_passages)) {
-            return '<p>' . __('Inga texter har tilldelats dig än', 'reading-assessment') . '</p>';
+        if (empty($passages)) {
+            if ($is_admin) {
+                return '<p>' . __('Det finns inga texter skapade än.', 'reading-assessment') . '</p>';
+            } else {
+                return '<p>' . __('Inga texter har tilldelats dig än', 'reading-assessment') . '</p>';
+            }
         }
 
         ob_start();
         ?>
-<div class="ra-user-info">
-    <h2><?php echo sprintf(__('Texter tilldelade till %s', 'reading-assessment'), esc_html($nickname)); ?></h2>
-</div>
-
-<!-- Passages Accordion -->
-<div class="ra-assigned-passages">
-    <?php foreach ($assigned_passages as $passage): ?>
-    <div class="ra-collapsible">
-        <h2 class="ra-collapsible-title" data-passage-id="<?php echo esc_attr($passage->id); ?>">
-            <?php echo esc_html($passage->title); ?>
-            <span class="ra-collapsible-icon">▼</span>
-        </h2>
-        <div id="passage-<?php echo esc_attr($passage->id); ?>" class="ra-collapsible-content">
-            <?php echo wp_kses_post($passage->content); ?>
+        <div class="ra-user-info">
+            <h2><?php echo esc_html($heading_text); ?></h2>
         </div>
-    </div>
-    <?php endforeach; ?>
-</div>
-<?php
+
+        <!-- Passages Accordion -->
+        <div class="ra-assigned-passages">
+            <?php foreach ($passages as $passage): ?>
+            <div class="ra-collapsible">
+                <h2 class="ra-collapsible-title" data-passage-id="<?php echo esc_attr($passage->id); ?>">
+                    <?php echo esc_html($passage->title); ?>
+                    <span class="ra-collapsible-icon">▼</span>
+                </h2>
+                <div id="passage-<?php echo esc_attr($passage->id); ?>" class="ra-collapsible-content">
+                    <?php echo wp_kses_post($passage->content); ?>
+                </div>
+            </div>
+            <?php endforeach; ?>
+        </div>
+        <?php
         return ob_get_clean();
     }
 
@@ -256,6 +267,8 @@ class RA_Public {
      * AJAX handler for saving recordings with security improvements
      */
     public function ajax_save_recording() {
+        ob_start(); // Start output buffering
+
         error_log('Received nonce: ' . (isset($_POST['nonce']) ? $_POST['nonce'] : 'Not set'));
         $security = RA_Security::get_instance();
 
@@ -331,9 +344,12 @@ class RA_Public {
             ];
 
             // Optionally log the response data for debugging
+            ob_clean(); // Clean the output buffer before sending JSON
             wp_send_json_success($response_data);
 
         } catch (Exception $e) {
+            error_log('RA Save Recording Exception: ' . $e->getMessage() . ' Trace: ' . $e->getTraceAsString()); // Log the full error and trace
+            ob_clean(); // Clean the output buffer before sending JSON
             wp_send_json_error([
                 'message' => $e->getMessage(),
                 'code' => 'recording_error'

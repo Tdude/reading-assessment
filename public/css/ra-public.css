@@ -308,3 +308,10 @@
   background: #4caf50 !important;
   color: white !important;
 }
+
+.ra-input-group {
+  margin: 2em 0;
+}
+.ra-input-group .ra-user-grade-input {
+  padding: .5em;
+}
