@@ -41,6 +41,38 @@ class ReadingAssessmentRecorder {
       waveformContainer: !!this.waveformContainer,
     });
 
+    // Create loading overlay
+    this.loadingOverlay = document.createElement("div");
+    this.loadingOverlay.className = "ra-loading-overlay";
+    // Basic styling (can be enhanced with CSS in your plugin's stylesheet)
+    this.loadingOverlay.style.position = "absolute";
+    this.loadingOverlay.style.top = "0";
+    this.loadingOverlay.style.left = "0";
+    this.loadingOverlay.style.width = "100%";
+    this.loadingOverlay.style.height = "100%";
+    this.loadingOverlay.style.backgroundColor = "rgba(255, 255, 255, 0.85)";
+    this.loadingOverlay.style.zIndex = "1000"; // Ensure it's on top
+    this.loadingOverlay.style.display = "flex"; // Use flex for centering
+    this.loadingOverlay.style.alignItems = "center";
+    this.loadingOverlay.style.justifyContent = "center";
+    this.loadingOverlay.style.textAlign = "center";
+    this.loadingOverlay.style.display = "none"; // Initially hidden
+
+    this.loadingMessageElement = document.createElement("span");
+    this.loadingMessageElement.className = "ra-loading-message";
+    this.loadingMessageElement.style.padding = "20px";
+    this.loadingMessageElement.style.backgroundColor = "#fff";
+    this.loadingMessageElement.style.border = "1px solid #ddd";
+    this.loadingMessageElement.style.borderRadius = "5px";
+    this.loadingMessageElement.style.boxShadow = "0 2px 5px rgba(0,0,0,0.1)";
+
+    this.loadingOverlay.appendChild(this.loadingMessageElement);
+
+    if (this.container) { // Ensure container exists before appending
+      this.container.style.position = "relative"; // For overlay positioning
+      this.container.appendChild(this.loadingOverlay);
+    }
+
     // Validate and initialize
     if (!this.validateElements()) {
       console.error("Required UI elements not found");
@@ -307,8 +339,7 @@ class ReadingAssessmentRecorder {
     }
 
     // Start loading animation
-    const dotsAnimation = this.animateLoadingText("Trimmar ljudet");
-    this.trimBtn.disabled = true; // Disable trim button during process
+    this.showLoading('Trimmar ljudet...');
 
     try {
       const trimmedBlob = await this.createTrimmedAudio();
@@ -320,8 +351,7 @@ class ReadingAssessmentRecorder {
       this.status.textContent = "Ett fel uppstod vid trimning av ljudet.";
     } finally {
       // Stop the loading animation
-      dotsAnimation();
-      this.trimBtn.disabled = false; // Re-enable trim button
+      this.hideLoading();
     }
   }
 
@@ -372,24 +402,49 @@ class ReadingAssessmentRecorder {
     });
   }
 
-  animateLoadingText(baseText) {
-    let dots = "";
-    const maxDots = 3;
-    let animationInterval;
+  showLoading(message) {
+    if (this.loadingOverlay && this.loadingMessageElement) {
+      this.loadingMessageElement.textContent = message;
+      this.loadingOverlay.style.display = "flex";
+    }
 
-    const updateText = () => {
-      dots = dots.length >= maxDots ? "" : dots + ".";
-      this.status.textContent = `${baseText}${dots}`;
-    };
+    // Disable all action buttons to prevent interference
+    if (this.startBtn) this.startBtn.disabled = true;
+    if (this.stopBtn) this.stopBtn.disabled = true;
+    if (this.playBtn) this.playBtn.disabled = true;
+    if (this.trimBtn) this.trimBtn.disabled = true;
+    if (this.uploadBtn) this.uploadBtn.disabled = true;
+  }
 
-    // Start animation
-    updateText();
-    animationInterval = setInterval(updateText, 500);
+  hideLoading() {
+    if (this.loadingOverlay) {
+      this.loadingOverlay.style.display = "none";
+    }
 
-    // Return function to stop animation
-    return () => {
-      clearInterval(animationInterval);
-    };
+    // Re-enable buttons based on the current state of the recorder
+    this.startBtn.disabled = this.isRecording; // Can start if not currently recording (and passage selected)
+    this.stopBtn.disabled = !this.isRecording;  // Can stop if currently recording
+
+    if (this.audioBlob) { // If there's audio loaded
+      this.playBtn.disabled = false;
+      this.trimBtn.disabled = false;
+      this.uploadBtn.disabled = false;
+    } else { // No audio loaded
+      this.playBtn.disabled = true;
+      this.trimBtn.disabled = true;
+      this.uploadBtn.disabled = true;
+      // If no audio, but a passage is selected, re-enable start button
+      if (document.getElementById("current-passage-id")?.value) {
+        this.startBtn.disabled = false;
+      } else {
+        this.startBtn.disabled = true; // No passage selected
+      }
+    }
+    // Special case: if recording just finished, stop button might have been re-enabled
+    // but we're no longer recording, so ensure it's disabled if hideLoading is called after stop.
+    if (!this.isRecording && this.stopBtn) {
+      this.stopBtn.disabled = true;
+    }
   }
 
   async uploadRecording() {
@@ -399,11 +454,8 @@ class ReadingAssessmentRecorder {
       return;
     }
 
-    // Disable upload button during upload
-    this.uploadBtn.disabled = true;
-
     // Start loading animation
-    const dotsAnimation = this.animateLoadingText("Laddar upp inspelning");
+    this.showLoading('Laddar upp inspelning...');
 
     try {
       const formData = new FormData();
@@ -452,8 +504,8 @@ class ReadingAssessmentRecorder {
           console.log("Questions are optional, skipping fetching questions.");
           this.status.textContent = "Inga frågor krävs.";
           // Potentially hide the questions section or enable a 'finish' button directly
-          this.passageSelector.disabled = false;
-          this.recordButton.disabled = false;
+          // this.passageSelector.disabled = false; // TODO: Ensure this.passageSelector is defined if used
+          this.startBtn.disabled = false; // Corrected from this.recordButton
           // Reset UI for new recording if desired
         } else {
           // After successful upload, show questions (if not optional)
@@ -468,8 +520,7 @@ class ReadingAssessmentRecorder {
       this.status.textContent = `Ett fel uppstod vid uppladdningen: ${error.message}`;
     } finally {
       // Stop the loading animation
-      dotsAnimation();
-      this.uploadBtn.disabled = false;
+      this.hideLoading();
     }
   }
 

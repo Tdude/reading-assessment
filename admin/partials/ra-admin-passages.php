@@ -229,7 +229,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ra_passage_nonce'])) 
                                 'tinymce' => array(
                                     'forced_root_block' => 'p',
                                     'remove_linebreaks' => false,
-                                    'convert_newlines_to_brs' => true,
+                                    'convert_newlines_to_brs' => false,
                                     'remove_redundant_brs' => false
                                 )
                             ));

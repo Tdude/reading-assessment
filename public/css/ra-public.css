@@ -167,10 +167,10 @@
 
 .ra-status {
   margin: 1em 0 0 0;
-  padding: 0.8em;
+  padding: 1em;
   border-radius: 0.5em;
-  background: rgba(255, 255, 255, 0.8);
-  font-size: 1em;
+  background: rgb(217 243 245 / 80%);
+  font-size: 1.5em;
   color: #000;
 }
 

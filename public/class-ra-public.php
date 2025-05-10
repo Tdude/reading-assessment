@@ -282,6 +282,26 @@ class RA_Public {
             // Validate passage
             $passage_id = $security->validate_passage_id($_POST['passage_id']);
 
+            // Fetch and sanitize passage title
+            global $wpdb;
+            $passage_table = $wpdb->prefix . 'ra_passages';
+            $passage_title_raw = $wpdb->get_var($wpdb->prepare("SELECT title FROM {$passage_table} WHERE id = %d", $passage_id));
+
+            $sanitized_passage_title = 'passage'; // Default fallback
+            if (!empty($passage_title_raw)) {
+                $title = strtolower(trim($passage_title_raw));
+                $title = preg_replace('/[^a-z0-9_]+/', '_', $title); // Replace non-alphanumeric (excluding _) with _
+                $title = trim($title, '_'); // Remove leading/trailing underscores
+                $title = preg_replace('/_+/', '_', $title); // Collapse multiple underscores
+                if (strlen($title) > 50) {
+                    $title = substr($title, 0, 50);
+                    $title = trim($title, '_'); // Ensure truncation doesn't leave trailing underscore
+                }
+                if (!empty($title) && $title !== '_') {
+                    $sanitized_passage_title = $title;
+                }
+            }
+
             // Get and sanitize user_grade
             $user_grade = null;
             if (isset($_POST['user_grade']) && !empty(trim($_POST['user_grade']))) {
@@ -301,7 +321,16 @@ class RA_Public {
             // Get current user ID
             $user_id = get_current_user_id(); 
             // The user_grade is already sanitized and available from previous steps
-            $filename = $security->generate_secure_filename($user_id, $user_grade, 'wav');
+
+            // DEBUG LOGGING
+            error_log('[RA_DEBUG] ajax_save_recording before generate_secure_filename:');
+            error_log('[RA_DEBUG] Passage ID: ' . $passage_id);
+            error_log('[RA_DEBUG] Passage Title Raw: ' . $passage_title_raw);
+            error_log('[RA_DEBUG] Sanitized Passage Title: ' . $sanitized_passage_title);
+            error_log('[RA_DEBUG] User Grade (from POST, sanitized): ' . $user_grade);
+            error_log('[RA_DEBUG] User ID: ' . $user_id);
+
+            $filename = $security->generate_secure_filename($user_id, $sanitized_passage_title, $user_grade, 'wav');
             $target_dir = $upload_dir['basedir'] . '/reading-assessment/' . $year . '/' . $month;
 
             // Ensure directory exists with proper permissions

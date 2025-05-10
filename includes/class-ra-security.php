@@ -120,29 +120,57 @@ class RA_Security {
     /**
      * Generate secure filename for audio uploads
      * @param int $user_id The user ID.
+     * @param string $sanitized_passage_title Sanitized passage title part.
      * @param string|null $user_grade The user's grade. Can be null.
      * @param string $extension The file extension.
      * @return string The generated filename.
      */
-    public function generate_secure_filename($user_id, $user_grade = null, $extension = 'wav') {
+    public function generate_secure_filename($user_id, $sanitized_passage_title_arg, $user_grade_arg = null, $extension_arg = 'wav') {
+        // DEBUG LOGGING - Received arguments
+        error_log('[RA_DEBUG] generate_secure_filename received args:');
+        error_log('[RA_DEBUG] User ID: ' . $user_id);
+        error_log('[RA_DEBUG] Sanitized Passage Title Arg: ' . $sanitized_passage_title_arg);
+        error_log('[RA_DEBUG] User Grade Arg: ' . $user_grade_arg);
+        error_log('[RA_DEBUG] Extension Arg: ' . $extension_arg);
+
         $timestamp = current_time('timestamp');
         $date_str = date('Ymd', $timestamp);
         $time_str = date('His', $timestamp);
 
-        $grade_part = 'na'; // Default if grade is not provided or empty
-        if (!empty(trim((string)$user_grade))) {
-            // Sanitize grade for filename: remove spaces and special characters, convert to lowercase
-            $grade_part = preg_replace('/[^a-zA-Z0-9_-]/', '', str_replace(' ', '-', strtolower(trim((string)$user_grade))));
+        // DEBUG LOGGING - Internal date/time
+        error_log('[RA_DEBUG] Internal date_str: ' . $date_str);
+        error_log('[RA_DEBUG] Internal time_str: ' . $time_str);
+
+        $passage_title_part = 'untitled-passage'; // Default if sanitized_passage_title is empty
+        if (!empty(trim((string)$sanitized_passage_title_arg))) {
+            // Assuming $sanitized_passage_title_arg is already sanitized as per requirements (a-z, 0-9, _)
+            $passage_title_part = $sanitized_passage_title_arg;
         }
 
-        return sprintf(
-            'user%d_%s_date%s_time%s.%s',
+        $grade_part = 'na'; // Default if grade is not provided or empty
+        if (!empty(trim((string)$user_grade_arg))) {
+            // Sanitize grade for filename: remove spaces and special characters, convert to lowercase
+            $grade_part = preg_replace('/[^a-zA-Z0-9_-]/', '', str_replace(' ', '-', strtolower(trim((string)$user_grade_arg))));
+        }
+
+        // DEBUG LOGGING - Parts for sprintf
+        error_log('[RA_DEBUG] passage_title_part for sprintf: ' . $passage_title_part);
+        error_log('[RA_DEBUG] grade_part for sprintf: ' . $grade_part);
+
+        $generated_filename = sprintf(
+            'user%d_%s_grade-%s_%s_%s.%s', // This is the format from Step 32
             (int)$user_id,
+            $passage_title_part,
             $grade_part,
             $date_str,
             $time_str,
-            sanitize_file_name($extension)
+            sanitize_file_name($extension_arg)
         );
+
+        // DEBUG LOGGING - Final filename
+        error_log('[RA_DEBUG] Generated filename: ' . $generated_filename);
+
+        return $generated_filename;
     }
 
     /**
