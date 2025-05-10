@@ -269,10 +269,10 @@ class RA_Public {
     public function ajax_save_recording() {
         ob_start(); // Start output buffering
 
-        error_log('Received nonce: ' . (isset($_POST['nonce']) ? $_POST['nonce'] : 'Not set'));
-        $security = RA_Security::get_instance();
-
         try {
+            global $wpdb; // Ensure $wpdb is available
+
+            $security = RA_Security::get_instance();
             // Validate request
             $security->validate_ajax_request(RA_Security::NONCE_PUBLIC, 'nonce');
             if (!$security->can_record()) {
@@ -292,17 +292,9 @@ class RA_Public {
                     $passage_title_raw = $db_title;
                 }
             }
-            error_log('[RA_DEBUG] Raw Passage Title from DB for generate_secure_filename: ' . $passage_title_raw);
 
             // Get user_grade from POST and apply basic sanitization
             $user_grade_raw = isset($_POST['user_grade']) ? sanitize_text_field(wp_unslash($_POST['user_grade'])) : '';
-            error_log('[RA_DEBUG] Raw User Grade from POST for generate_secure_filename: ' . $user_grade_raw);
-
-            // DEBUG LOGGING - Before calling generate_secure_filename
-            error_log('[RA_DEBUG] ajax_save_recording about to call generate_secure_filename with:');
-            error_log('[RA_DEBUG] User ID: ' . $user_id);
-            error_log('[RA_DEBUG] Passage Title (raw): ' . $passage_title_raw);
-            error_log('[RA_DEBUG] User Grade (raw, sanitized from POST): ' . $user_grade_raw);
 
             // Generate filename using the security class, passing raw-ish title and grade
             $filename = $security->generate_secure_filename($user_id, $passage_title_raw, $user_grade_raw, 'wav');
@@ -331,7 +323,6 @@ class RA_Public {
             chmod($file_path, 0644);
 
             // Save to database using prepared statement
-            global $wpdb;
             $result = $wpdb->insert(
                 $wpdb->prefix . 'ra_recordings',
                 [

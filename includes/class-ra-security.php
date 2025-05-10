@@ -126,20 +126,9 @@ class RA_Security {
      * @return string The generated filename.
      */
     public function generate_secure_filename($user_id, $raw_passage_title_arg, $raw_user_grade_arg = null, $extension = 'wav') {
-        // DEBUG LOGGING - Received arguments
-        error_log('[RA_DEBUG] generate_secure_filename received args:');
-        error_log('[RA_DEBUG] User ID: ' . $user_id);
-        error_log('[RA_DEBUG] Raw Passage Title Arg: ' . $raw_passage_title_arg);
-        error_log('[RA_DEBUG] Raw User Grade Arg: ' . $raw_user_grade_arg);
-        error_log('[RA_DEBUG] Extension Arg: ' . $extension);
-
         $current_time = current_time('timestamp');
         $date_str = date('Ymd', $current_time);
         $time_str = date('His', $current_time);
-
-        // DEBUG LOGGING - Internal date/time
-        error_log('[RA_DEBUG] Internal date_str: ' . $date_str);
-        error_log('[RA_DEBUG] Internal time_str: ' . $time_str);
 
         // Sanitize Passage Title Part
         $passage_title_part = 'untitled-passage'; // Default
@@ -162,7 +151,6 @@ class RA_Security {
                 $passage_title_part = $temp_title;
             }
         }
-        error_log('[RA_DEBUG] Passage title part (after internal sanitization): ' . $passage_title_part);
 
         // Sanitize User Grade Part
         $grade_part = 'na'; // Default if grade is not provided or empty
@@ -182,10 +170,6 @@ class RA_Security {
             }
         }
 
-        // DEBUG LOGGING - Parts for sprintf
-        error_log('[RA_DEBUG] passage_title_part for sprintf: ' . $passage_title_part);
-        error_log('[RA_DEBUG] grade_part for sprintf: ' . $grade_part);
-
         $generated_filename = sprintf(
             'user%d_%s_grade-%s_%s_%s.%s',
             (int)$user_id,
@@ -195,9 +179,6 @@ class RA_Security {
             $time_str,
             $extension
         );
-
-        // DEBUG LOGGING - Final filename
-        error_log('[RA_DEBUG] Generated filename: ' . $generated_filename);
 
         return $generated_filename;
     }
