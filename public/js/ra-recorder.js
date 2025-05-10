@@ -101,9 +101,47 @@ class ReadingAssessmentRecorder {
     console.log("Initializing button states");
     this.startBtn.disabled = false;
     this.stopBtn.disabled = true;
-    this.playBtn.disabled = true;
+    // this.playBtn.disabled = true; // Handled by wavesurfer 'ready' event
     this.trimBtn.disabled = true;
     this.uploadBtn.disabled = true;
+    this.updatePlayButtonState(false); // Set initial state for playBtn
+    if (this.playBtn) this.playBtn.disabled = true; // Keep it disabled until audio loads
+  }
+
+  updatePlayButtonState(isPlaying) {
+    if (!this.playBtn) return;
+
+    if (isPlaying) {
+      this.playBtn.innerHTML = '<span class="dashicons dashicons-controls-pause"></span> Pausa';
+    } else {
+      this.playBtn.innerHTML = '<span class="dashicons dashicons-controls-play"></span> Spela';
+    }
+  }
+
+  initializeWaveSurferEvents() {
+    if (!this.wavesurfer) {
+      console.log("WS_Events: No instance");
+      return;
+    }
+    console.log("WS_Events: Attaching...");
+
+    this.wavesurfer.on('play', () => { console.log("WS_EVENT: play"); this.updatePlayButtonState(true); });
+    this.wavesurfer.on('pause', () => { console.log("WS_EVENT: pause"); this.updatePlayButtonState(false); });
+    this.wavesurfer.on('finish', () => { console.log("WS_EVENT: finish"); this.updatePlayButtonState(false); });
+    this.wavesurfer.on('ready', () => {
+      console.log("WS_EVENT: global ready - PlayBtn will enable");
+      this.updatePlayButtonState(false);
+      if (this.playBtn) {
+        this.playBtn.disabled = false;
+        console.log("WS_EVENT: global ready - PlayBtn enabled. Disabled:", this.playBtn.disabled);
+      } else {
+        console.warn("WS_EVENT: global ready - playBtn NOT FOUND!");
+      }
+    });
+    this.wavesurfer.on('error', (err) => { console.error("WS_EVENT: global error", err); });
+    this.wavesurfer.on('loading', (percent) => { console.log("WS_EVENT: loading", percent + "%"); });
+    this.wavesurfer.on('decode', () => { console.log("WS_EVENT: decode (audio decoded)"); });
+    console.log("WS_Events: Listeners attached.");
   }
 
   async startRecording() {
@@ -175,153 +213,243 @@ class ReadingAssessmentRecorder {
   }
 
   togglePlayback() {
-    if (!this.wavesurfer) return;
+    if (!this.wavesurfer || (this.playBtn && this.playBtn.disabled)) return;
 
     if (this.wavesurfer.isPlaying()) {
       this.wavesurfer.pause();
-    } else if (this.region) {
-      this.wavesurfer.play(this.region.start, this.region.end);
     } else {
-      this.wavesurfer.play();
+      // Not playing, so we want to play
+      if (this.region) {
+        const currentTime = this.wavesurfer.getCurrentTime();
+        const regionStartTime = this.region.start;
+        const regionEndTime = this.region.end;
+        const audioDuration = this.wavesurfer.getDuration();
+        const tolerance = 0.05; // Tolerance for floating point comparisons
+
+        // Check if playback should restart from the beginning of the region
+        if (
+          currentTime < regionStartTime || // Cursor is before the region
+          currentTime >= regionEndTime - tolerance || // Cursor is at or past the end of the region
+          (regionEndTime >= audioDuration - tolerance && currentTime >= audioDuration - tolerance) // Region covers till end of audio, and cursor is at end of audio
+        ) {
+          console.log("TogglePlayback: Playing region from start.");
+          this.wavesurfer.play(this.region.start, this.region.end);
+        } else {
+          // Paused within the region, resume normally
+          console.log("TogglePlayback: Resuming playback (within region).");
+          this.wavesurfer.play(); 
+        }
+      } else {
+        // No region, just play. If audio ended, it will play from the start. Otherwise, resumes.
+        console.log("TogglePlayback: Playing (no region).");
+        this.wavesurfer.play();
+      }
     }
+    // Button state is updated by 'play'/'pause' events from initializeWaveSurferEvents
   }
 
   async handleRecordingStop(chunks) {
+    let audioUrl; 
+    console.log("HRS: Entered. Chunks:", chunks.length);
     try {
-      // Confirm WaveSurfer and Regions are available
       if (!window.WaveSurfer || !window.WaveSurfer.regions) {
-        console.error("WaveSurfer or Regions plugin not available");
+        console.error("HRS: WaveSurfer/Regions unavailable");
         throw new Error("WaveSurfer or Regions plugin not available");
       }
 
       this.audioBlob = new Blob(chunks, { type: "audio/webm" });
+      console.log("HRS: Blob created, size:", this.audioBlob.size);
       this.isRecording = false;
 
-      const audioUrl = URL.createObjectURL(this.audioBlob);
+      audioUrl = URL.createObjectURL(this.audioBlob);
+      console.log("HRS: Audio URL:", audioUrl ? 'OK' : 'Failed');
 
-      // Destroy existing WaveSurfer instance if it exists
       if (this.wavesurfer) {
+        console.log("HRS: Destroying old WS instance.");
         this.wavesurfer.destroy();
       }
 
-      // Create WaveSurfer instance EXACTLY like the local example
+      console.log("HRS: Creating new WS instance...");
       this.wavesurfer = WaveSurfer.create({
-        waveColor: "#005a87",
-        progressColor: "#1976d2",
-        height: 100,
-        interact: true,
-        minPxPerSec: 50,
-        container: "#waveform",
-        plugins: [
-          WaveSurfer.regions.create({
-            dragSelection: false,
-          }),
-        ],
+        container: this.waveformContainer,
+        waveColor: "rgb(200, 200, 200)",
+        progressColor: "rgb(100, 100, 100)",
+        plugins: [WaveSurfer.regions.create({})],
       });
+      console.log("HRS: New WS instance created:", !!this.wavesurfer);
 
-      // Load audio and wait for it to be ready
+      console.log("HRS: Calling initializeWaveSurferEvents...");
+      this.initializeWaveSurferEvents();
+      console.log("HRS: Returned from initializeWaveSurferEvents.");
+
+      console.log("HRS: Promise for load/region...");
       await new Promise((resolve, reject) => {
-        // Mimic local example's region creation
-        this.wavesurfer.on("ready", () => {
-          const duration = this.wavesurfer.getDuration();
-
-          // Use addRegion method directly
-          this.region = this.wavesurfer.addRegion({
-            start: 0,
-            end: duration,
-            drag: false,
-            resize: true,
-            color: "rgba(44, 202, 237, 0.2)",
-          });
-
+        console.log("HRS_Promise: Attaching local ready/error for load.");
+        const onReadyHandler = () => {
+          this.wavesurfer.un('ready', onReadyHandler); 
+          this.wavesurfer.un('error', onErrorHandler);
+          console.log("HRS_Promise: LOCAL WS 'ready'. Region creation...");
+          if (this.wavesurfer && this.wavesurfer.getDuration() > 0) {
+            try {
+              this.region = this.wavesurfer.addRegion({
+                start: 0, end: this.wavesurfer.getDuration(), drag: false, resize: true, color: "rgba(44, 202, 237, 0.2)",
+              });
+              console.log("HRS_Promise: Region created.");
+            } catch (regionError) {
+              console.error("HRS_Promise: Region creation ERROR:", regionError);
+            }
+          } else {
+            console.warn("HRS_Promise: WS not ready/no duration for region.");
+          }
           resolve();
-        });
-
-        this.wavesurfer.on("error", (error) => {
-          console.error("Wavesurfer error:", error);
+        };
+        const onErrorHandler = (error) => {
+          this.wavesurfer.un('ready', onReadyHandler);
+          this.wavesurfer.un('error', onErrorHandler);
+          console.error("HRS_Promise: LOCAL WS 'error' on load:", error);
           reject(error);
-        });
+        };
 
+        this.wavesurfer.on('ready', onReadyHandler);
+        this.wavesurfer.on('error', onErrorHandler);
+        console.log("HRS_Promise: Calling wavesurfer.load().");
         this.wavesurfer.load(audioUrl);
+        console.log("HRS_Promise: wavesurfer.load() called.");
       });
+      console.log("HRS: Promise for load/region RESOLVED.");
 
-      // Update UI
+      console.log("HRS: Calling updateUIForRecording(false).");
       this.updateUIForRecording(false);
-      this.playBtn.disabled = false;
-      this.trimBtn.disabled = false;
-      this.uploadBtn.disabled = false; // Enable upload button here
 
-      // Clean up URL
-      URL.revokeObjectURL(audioUrl);
+      // Enable Trim and Upload buttons if audio is ready
+      if (this.audioBlob && this.wavesurfer && this.wavesurfer.getDuration() > 0) {
+        console.log("HRS: Enabling Trim and Upload buttons.");
+        this.trimBtn.disabled = false;
+        this.uploadBtn.disabled = false;
+      } else {
+        console.warn("HRS: NOT enabling Trim/Upload. Conditions not met. audioBlob:", !!this.audioBlob, "wavesurfer:", !!this.wavesurfer, "duration:", this.wavesurfer ? this.wavesurfer.getDuration() : 'N/A');
+        this.trimBtn.disabled = true;
+        this.uploadBtn.disabled = true;
+      }
+
+      console.log("HRS: playBtn disabled state AFTER UI update:", this.playBtn ? this.playBtn.disabled : 'Not Found');
+      if (this.playBtn && !this.playBtn.disabled) {
+        console.log("HRS: Play button is ENABLED as expected.");
+      } else if (this.playBtn) {
+        console.warn("HRS: Play button is still DISABLED. Check for errors or missed 'ready' event.");
+      }
+
     } catch (error) {
-      console.error("Detailed error handling recording stop:", error);
+      console.error("HRS: CRITICAL ERROR:", error);
       this.status.textContent = "Ett fel uppstod vid inspelningsstopp.";
+      this.initializeButtonStates(); 
+      this.updatePlayButtonState(false); 
+      if(this.playBtn) this.playBtn.disabled = true; 
+    } finally {
+      if (audioUrl) {
+        console.log("HRS_Finally: Revoking object URL.");
+        URL.revokeObjectURL(audioUrl);
+        audioUrl = null; 
+      }
+      console.log("HRS: Exiting handleRecordingStop.");
     }
   }
 
   async updateAudioWithTrimmed(trimmedBlob) {
+    let audioUrl;
+    console.log("UAT: Entered. Blob size:", trimmedBlob.size);
     try {
-      console.log("Updating audio with trimmed blob:", {
-        type: trimmedBlob.type,
-        size: trimmedBlob.size,
-      });
-
-      // Store current region bounds before loading new audio
       const previousStart = this.region ? this.region.start : 0;
       const previousEnd = this.region ? this.region.end : null;
 
       this.audioBlob = trimmedBlob;
-      const audioUrl = URL.createObjectURL(trimmedBlob);
+      audioUrl = URL.createObjectURL(trimmedBlob);
+      console.log("UAT: Audio URL:", audioUrl ? 'OK' : 'Failed');
 
-      // Destroy existing WaveSurfer instance
       if (this.wavesurfer) {
+        console.log("UAT: Destroying old WS instance.");
         this.wavesurfer.destroy();
       }
 
-      // Recreate WaveSurfer with regions plugin
+      console.log("UAT: Creating new WS instance...");
       this.wavesurfer = WaveSurfer.create({
-        waveColor: "#005a87",
-        progressColor: "#1976d2",
-        height: 100,
-        interact: true,
-        minPxPerSec: 50,
-        container: "#waveform",
-        plugins: [
-          WaveSurfer.regions.create({
-            dragSelection: false,
-          }),
-        ],
+        container: this.waveformContainer,
+        waveColor: "rgb(200, 200, 200)",
+        progressColor: "rgb(100, 100, 100)",
+        plugins: [WaveSurfer.regions.create({})],
       });
+      console.log("UAT: New WS instance created:", !!this.wavesurfer);
 
-      // Load audio and create region
+      console.log("UAT: Calling initializeWaveSurferEvents...");
+      this.initializeWaveSurferEvents();
+      console.log("UAT: Returned from initializeWaveSurferEvents.");
+
+      console.log("UAT: Promise for load/region...");
       await new Promise((resolve, reject) => {
-        this.wavesurfer.on("ready", () => {
+        console.log("UAT_Promise: Attaching local ready/error for load.");
+        const onReadyHandler = () => {
+          this.wavesurfer.un('ready', onReadyHandler);
+          this.wavesurfer.un('error', onErrorHandler);
           const duration = this.wavesurfer.getDuration();
-
-          // Create region with full or previous length
-          this.region = this.wavesurfer.addRegion({
-            start: 0,
-            end: Math.min(previousEnd || duration, duration),
-            drag: false,
-            resize: true,
-            color: "rgba(44, 202, 237, 0.2)",
-          });
-
+          console.log("UAT_Promise: LOCAL WS 'ready'. Duration:", duration, "Region creation...");
+          if (this.wavesurfer && duration > 0) {
+            try {
+              this.region = this.wavesurfer.addRegion({
+                start: 0, end: duration, drag: false, resize: true, color: "rgba(44, 202, 237, 0.2)",
+              });
+              console.log("UAT_Promise: Region created.");
+            } catch (regionError) {
+              console.error("UAT_Promise: Region creation ERROR:", regionError);
+            }
+          } else {
+            console.warn("UAT_Promise: WS not ready/no duration for region.");
+          }
           resolve();
-        });
+        };
+        const onErrorHandler = (error) => {
+          this.wavesurfer.un('ready', onReadyHandler);
+          this.wavesurfer.un('error', onErrorHandler);
+          console.error("UAT_Promise: LOCAL WS 'error' on load:", error);
+          reject(error);
+        };
 
-        this.wavesurfer.on("error", reject);
+        this.wavesurfer.on('ready', onReadyHandler);
+        this.wavesurfer.on('error', onErrorHandler);
+        console.log("UAT_Promise: Calling wavesurfer.load().");
         this.wavesurfer.load(audioUrl);
+        console.log("UAT_Promise: wavesurfer.load() called.");
       });
+      console.log("UAT: Promise for load/region RESOLVED.");
 
       this.status.textContent = "Ljudet har trimmats.";
-      this.uploadBtn.disabled = false;
+      
+      // Enable/disable buttons after trim
+      if (this.audioBlob && this.wavesurfer && this.wavesurfer.getDuration() > 0) {
+        console.log("UAT: Enabling Upload button. Trim button also re-enabled for potential further trims.");
+        this.uploadBtn.disabled = false;
+        this.trimBtn.disabled = false; // Allow further trims if desired
+      } else {
+        console.warn("UAT: NOT enabling Trim/Upload after trim. Conditions not met. audioBlob:", !!this.audioBlob, "wavesurfer:", !!this.wavesurfer, "duration:", this.wavesurfer ? this.wavesurfer.getDuration() : 'N/A');
+        this.uploadBtn.disabled = true;
+        this.trimBtn.disabled = true;
+      }
+      
+      console.log("UAT: playBtn disabled state (should be F by global ready):", this.playBtn ? this.playBtn.disabled : 'Not Found');
+      // this.uploadBtn.disabled = false; // Old line, replaced by conditional logic above
 
-      // Clean up URL
-      URL.revokeObjectURL(audioUrl);
     } catch (error) {
-      console.error("Ett fel uppstod vid uppdatering av trimningen:", error);
-      throw error;
+      console.error("UAT: CRITICAL ERROR:", error);
+      this.status.textContent = "Ett fel uppstod vid trimning.";
+      this.initializeButtonStates(); 
+      this.updatePlayButtonState(false); 
+      if(this.playBtn) this.playBtn.disabled = true; 
+    } finally {
+      if (audioUrl) {
+        console.log("UAT_Finally: Revoking object URL.");
+        URL.revokeObjectURL(audioUrl);
+        audioUrl = null; 
+      }
+      console.log("UAT: Exiting updateAudioWithTrimmed.");
     }
   }
 
@@ -541,9 +669,12 @@ class ReadingAssessmentRecorder {
       this.mediaStream = null;
     }
     if (this.recorder?.state === "recording") {
-      this.recorder.stop();
+      console.log("Cleanup: Stopping active recorder.");
+      this.recorder.stop(); // This will trigger onstop, which handles wavesurfer cleanup
     }
     if (this.wavesurfer) {
+      console.log("Cleanup: Stopping and destroying WaveSurfer instance.");
+      this.wavesurfer.stop(); // Stop playback before destroying
       this.wavesurfer.destroy();
       this.wavesurfer = null;
     }
@@ -553,7 +684,12 @@ class ReadingAssessmentRecorder {
     this.region = null;
     this.isRecording = false;
 
-    this.initializeButtonStates();
+    console.log("Cleanup: Calling initializeButtonStates to reset UI.");
+    this.initializeButtonStates(); // This will reset playBtn text and disable it
+    // Explicitly ensure play button is updated if cleanup happens outside of normal flow
+    this.updatePlayButtonState(false);
+    if (this.playBtn) this.playBtn.disabled = true;
+    console.log("Cleanup: Finished. Buttons reset. PlayBtn disabled:", this.playBtn ? this.playBtn.disabled : 'Not Found');
   }
 
   updateUIForPassage(passageId) {
