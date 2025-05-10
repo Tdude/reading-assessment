@@ -211,6 +211,16 @@ class RA_Public {
             return '<p>' . __('Du måste vara inloggad för att se texter', 'reading-assessment') . '</p>';
         }
 
+        // Define your list of PDFs here (title => URL)
+        $pdf_files_map = array(
+            'Sova med Mino' => 'https://drive.google.com/file/d/18AQUdx26MGg85ka3nIAA_gpLkQaECujU/view?usp=sharing',
+            'Kasper' => 'https://drive.google.com/file/d/1--k8Osky_G7nbwY8PQEryufe-Fjjc5m1/view?usp=sharing',
+            'Mio min Mio' => 'https://drive.google.com/file/d/1caZqBYJBdbytqVGQjfzr6sPilTjX6UrG/view?usp=sharing',
+            'Emil och soppskålen' => 'https://drive.google.com/file/d/1YERpFbwamBrU8Pa8DQx9uQhN_YAzrOqe/view?usp=sharing',
+            'Jamen Benny' => 'https://drive.google.com/file/d/1oVZrrlwd55cYNPWr4vrSoE8iG8I2Bh8C/view?usp=sharing',
+            'I Skymningslandet' => 'https://drive.google.com/file/d/1kJIVYMEPVX7v3RhqJ_C4yYDeEBWMdWhl/view?usp=sharing',
+        );
+
         $current_user = wp_get_current_user();
         $db = new RA_Database();
         $is_admin = in_array('administrator', (array) $current_user->roles);
@@ -248,6 +258,23 @@ class RA_Public {
                 </h2>
                 <div id="passage-<?php echo esc_attr($passage->id); ?>" class="ra-collapsible-content">
                     <?php echo wp_kses_post($passage->content); ?>
+                    <?php
+                    // ---- START: PDF Link Logic for Passage Listing ----
+                    // Check if this passage title has a corresponding PDF link in our map
+                    if (isset($passage->title) && array_key_exists($passage->title, $pdf_files_map)) {
+                        $pdf_url = $pdf_files_map[$passage->title];
+                        // Ensure the URL is valid before displaying
+                        if (!empty($pdf_url) && filter_var($pdf_url, FILTER_VALIDATE_URL)) {
+                            echo '<div class="ra-pdf-links section">';
+                            echo '<strong>' . __('Tillhörande PDF:', 'reading-assessment') . '</strong> ';
+                            echo '<a href="' . esc_url($pdf_url) . '" target="_blank" rel="noopener noreferrer">';
+                            echo esc_html($passage->title) . ' <span class="dashicons dashicons-external"></span>';
+                            echo '</a>';
+                            echo '</div>';
+                        }
+                    }
+                    // ---- END: PDF Link Logic for Passage Listing ----
+                    ?>
                 </div>
             </div>
             <?php endforeach; ?>
