@@ -76,11 +76,12 @@ $upload_dir = wp_upload_dir();
                 <table class="wp-list-table widefat fixed striped">
                     <thead>
                         <tr>
-                            <th width="15%"><?php _e('Användare', 'reading-assessment'); ?></th>
-                            <th width="15%"><?php _e('Inspelning', 'reading-assessment'); ?></th>
+                            <th width="12%"><?php _e('Användare', 'reading-assessment'); ?></th>
+                            <th width="10%"><?php _e('Inspelning', 'reading-assessment'); ?></th>
+                            <th width="20%"><?php _e('Titel', 'reading-assessment'); ?></th>
                             <th width="10%"><?php _e('Längd', 'reading-assessment'); ?></th>
-                            <th width="20%"><?php _e('Datum', 'reading-assessment'); ?></th>
-                            <th width="40%"><?php _e('Bedömningar', 'reading-assessment'); ?></th>
+                            <th width="18%"><?php _e('Datum', 'reading-assessment'); ?></th>
+                            <th width="30%"><?php _e('Bedömningar', 'reading-assessment'); ?></th>
                         </tr>
                     </thead>
                     <tbody>
@@ -104,6 +105,7 @@ $upload_dir = wp_upload_dir();
                                 <span class="error"><?php _e('Ljudfil saknas', 'reading-assessment'); ?></span>
                                 <?php endif; ?>
                             </td>
+                            <td><?php echo esc_html($recording->passage_title ? wp_trim_words($recording->passage_title, 7, '...') : __('N/A', 'reading-assessment')); ?></td>
                             <td><?php echo esc_html($recording->duration ? round($recording->duration, 1) . ' sek' : 'N/A'); ?>
                             </td>
                             <td><?php echo esc_html(date_i18n(get_option('date_format') . ' ' . get_option('time_format'), strtotime($recording->created_at))); ?>

@@ -327,12 +327,14 @@ class RA_Database {
         $where_clause = ' WHERE ' . implode(' AND ', $where_conditions);
 
         $query = "SELECT r.*, u.display_name, u.ID as user_id,
+                p.title as passage_title, -- Added passage title
                 r.audio_file_path, r.duration,
                 DATE_FORMAT(r.created_at, '%Y/%m') as date_path,
                 COUNT(a.id) as assessment_count,
                 AVG(a.normalized_score) as avg_assessment_score
             FROM {$this->db->prefix}ra_recordings r
             JOIN {$this->db->users} u ON r.user_id = u.ID
+            LEFT JOIN {$this->db->prefix}ra_passages p ON r.passage_id = p.id -- Added JOIN for passages table
             LEFT JOIN {$this->db->prefix}ra_assessments a ON r.id = a.recording_id
             {$where_clause}
             GROUP BY r.id
