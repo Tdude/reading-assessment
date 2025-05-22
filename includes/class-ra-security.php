@@ -126,9 +126,22 @@ class RA_Security {
      * @return string The generated filename.
      */
     public function generate_secure_filename($user_id, $raw_passage_title_arg, $raw_user_grade_arg = null, $extension = 'wav') {
-        $current_time = current_time('timestamp');
-        $date_str = date('Ymd', $current_time);
-        $time_str = date('His', $current_time);
+        // Get current time as a DateTime object in UTC, then convert to Europe/Stockholm timezone
+        try {
+            // Get current time in UTC to avoid ambiguity with server's default timezone
+            $datetime_utc = new DateTime('now', new DateTimeZone('UTC'));
+            // Set the timezone to Europe/Stockholm
+            $datetime_stockholm = $datetime_utc->setTimezone(new DateTimeZone('Europe/Stockholm'));
+            
+            $date_str = $datetime_stockholm->format('Y-m-d');
+            $time_str = $datetime_stockholm->format('H-i'); // Using H-i for time to avoid colon in filename
+        } catch (Exception $e) {
+            // Fallback to WordPress current_time if DateTime fails (should be rare)
+            error_log('RA Security DateTime Exception: ' . $e->getMessage());
+            $current_wp_time = current_time('timestamp');
+            $date_str = date('Y-m-d', $current_wp_time);
+            $time_str = date('H-i', $current_wp_time); // Using H-i for time
+        }
 
         // Sanitize Passage Title Part
         $passage_title_part = 'untitled-passage'; // Default
@@ -157,26 +170,33 @@ class RA_Security {
         if (!empty(trim((string)$raw_user_grade_arg))) {
             $temp_grade = strtolower(trim((string)$raw_user_grade_arg));
 
+            // More specific sanitization for grade to make it filename-friendly
+            // Allow a-z, 0-9, and common separators like hyphen or underscore. Replace others.
+            // Replace å,ä,ö first
             $char_map_grade = ['å' => 'a', 'ä' => 'a', 'ö' => 'o'];
             $temp_grade = strtr($temp_grade, $char_map_grade);
 
-            $temp_grade = str_replace(' ', '-', $temp_grade);
-            $temp_grade_sanitized = preg_replace('/[^a-zA-Z0-9_-]/', '', $temp_grade);
+            $temp_grade = preg_replace('/[^a-z0-9_-]+/', '_', $temp_grade);
+            $temp_grade = preg_replace('/__+/', '_', $temp_grade); // Collapse multiple underscores
+            $temp_grade = trim($temp_grade, '_'); // Trim leading/trailing underscores
 
-            if (!empty($temp_grade_sanitized) && !preg_match('/^[_-]+$/', $temp_grade_sanitized)) {
-                $grade_part = $temp_grade_sanitized;
-            } else {
-                $grade_part = 'na'; // Fallback if sanitization results in empty or only hyphens/underscores
+            if (strlen($temp_grade) > 20) { // Limit length of grade part
+                $temp_grade = substr($temp_grade, 0, 20);
+                $temp_grade = trim($temp_grade, '_');
+            }
+
+            if (!empty($temp_grade) && $temp_grade !== '_') {
+                $grade_part = $temp_grade;
             }
         }
 
         $generated_filename = sprintf(
-            'user%d_%s_grade-%s_%s_%s.%s',
+            '%s_%s_user%d_%s_klass-%s.%s',
+            $date_str,
+            $time_str,
             (int)$user_id,
             $passage_title_part,
             $grade_part,
-            $date_str,
-            $time_str,
             $extension
         );
 
