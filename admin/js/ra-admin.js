@@ -572,22 +572,32 @@
             $("#difficulty_level").val(passage.difficulty_level);
             $("#time_limit").val(passage.time_limit);
 
-            if (typeof wp !== 'undefined' && wp.editor && typeof wp.editor.setContent === 'function') {
-                wp.editor.setContent('content', passage.content);
-            } else if (typeof tinyMCE !== 'undefined') {
-                const editor = tinyMCE.get('content');
-                if (editor) {
-                    editor.setContent(passage.content);
-                    if (editor.isHidden()) { // If in text mode (visual editor is hidden)
-                        editor.save(); // Ensure the textarea is updated with the new content
-                    }
-                } else {
-                    // Fallback if TinyMCE editor instance not found but tinyMCE is defined
-                    $('#content').val(passage.content);
-                }
+            const editorId = 'content';
+            const newContent = passage.content;
+            const $textarea = $('#' + editorId);
+            const tinymceEditor = (typeof tinyMCE !== 'undefined') ? tinyMCE.get(editorId) : null;
+
+            // Determine if Text Mode (HTML mode) is active by checking class on the wrapper
+            const inTextMode = $('#wp-' + editorId + '-wrap').hasClass('html-active');
+
+            if (inTextMode) {
+              // TEXT MODE IS ACTIVE
+              $textarea.val(newContent); // Update the visible textarea directly
+
+              // If TinyMCE is initialized, sync its internal model too
+              if (tinymceEditor && tinymceEditor.initialized) {
+                tinymceEditor.setContent(newContent, { format: 'raw' });
+              }
             } else {
-                // Fallback if neither wp.editor nor TinyMCE are available
-                $('#content').val(passage.content);
+              // VISUAL MODE IS ACTIVE (or mode couldn't be determined, try standard APIs)
+              if (typeof wp !== 'undefined' && wp.editor && typeof wp.editor.setContent === 'function') {
+                wp.editor.setContent(editorId, newContent);
+              } else if (tinymceEditor && tinymceEditor.initialized) {
+                tinymceEditor.setContent(newContent);
+              } else {
+                // Fallback if no advanced editor API is available
+                $textarea.val(newContent);
+              }
             }
 
             $("#ra-form-title").text("Ändra text");
