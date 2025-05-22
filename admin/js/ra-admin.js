@@ -572,11 +572,22 @@
             $("#difficulty_level").val(passage.difficulty_level);
             $("#time_limit").val(passage.time_limit);
 
-            if (typeof tinyMCE !== "undefined") {
-              const editor = tinyMCE.get("content");
-              if (editor) {
-                editor.setContent(passage.content);
-              }
+            if (typeof wp !== 'undefined' && wp.editor && typeof wp.editor.setContent === 'function') {
+                wp.editor.setContent('content', passage.content);
+            } else if (typeof tinyMCE !== 'undefined') {
+                const editor = tinyMCE.get('content');
+                if (editor) {
+                    editor.setContent(passage.content);
+                    if (editor.isHidden()) { // If in text mode (visual editor is hidden)
+                        editor.save(); // Ensure the textarea is updated with the new content
+                    }
+                } else {
+                    // Fallback if TinyMCE editor instance not found but tinyMCE is defined
+                    $('#content').val(passage.content);
+                }
+            } else {
+                // Fallback if neither wp.editor nor TinyMCE are available
+                $('#content').val(passage.content);
             }
 
             $("#ra-form-title").text("Ändra text");
