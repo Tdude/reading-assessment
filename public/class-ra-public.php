@@ -211,16 +211,6 @@ class RA_Public {
             return '<p>' . __('Du måste vara inloggad för att se texter', 'reading-assessment') . '</p>';
         }
 
-        // Define your list of PDFs here (title => URL)
-        $pdf_files_map = array(
-            'Sova med Mino' => 'https://drive.google.com/file/d/18AQUdx26MGg85ka3nIAA_gpLkQaECujU/view?usp=sharing',
-            'Kasper' => 'https://drive.google.com/file/d/1--k8Osky_G7nbwY8PQEryufe-Fjjc5m1/view?usp=sharing',
-            'Mio min Mio' => 'https://drive.google.com/file/d/1caZqBYJBdbytqVGQjfzr6sPilTjX6UrG/view?usp=sharing',
-            'Emil och soppskålen' => 'https://drive.google.com/file/d/1YERpFbwamBrU8Pa8DQx9uQhN_YAzrOqe/view?usp=sharing',
-            'Jamen Benny' => 'https://drive.google.com/file/d/1oVZrrlwd55cYNPWr4vrSoE8iG8I2Bh8C/view?usp=sharing',
-            'I Skymningslandet' => 'https://drive.google.com/file/d/1kJIVYMEPVX7v3RhqJ_C4yYDeEBWMdWhl/view?usp=sharing',
-        );
-
         $current_user = wp_get_current_user();
         $db = new RA_Database();
         $is_admin = in_array('administrator', (array) $current_user->roles);
@@ -258,23 +248,6 @@ class RA_Public {
                 </h2>
                 <div id="passage-<?php echo esc_attr($passage->id); ?>" class="ra-collapsible-content">
                     <?php echo wp_kses_post($passage->content); ?>
-                    <?php
-                    // ---- START: PDF Link Logic for Passage Listing ----
-                    // Check if this passage title has a corresponding PDF link in our map
-                    if (isset($passage->title) && array_key_exists($passage->title, $pdf_files_map)) {
-                        $pdf_url = $pdf_files_map[$passage->title];
-                        // Ensure the URL is valid before displaying
-                        if (!empty($pdf_url) && filter_var($pdf_url, FILTER_VALIDATE_URL)) {
-                            echo '<div class="ra-pdf-links section">';
-                            echo '<strong>' . __('Tillhörande PDF:', 'reading-assessment') . '</strong> ';
-                            echo '<a href="' . esc_url($pdf_url) . '" target="_blank" rel="noopener noreferrer">';
-                            echo esc_html($passage->title) . ' <span class="dashicons dashicons-external"></span>';
-                            echo '</a>';
-                            echo '</div>';
-                        }
-                    }
-                    // ---- END: PDF Link Logic for Passage Listing ----
-                    ?>
                 </div>
             </div>
             <?php endforeach; ?>
@@ -323,6 +296,9 @@ class RA_Public {
             // Get user_grade from POST and apply basic sanitization
             $user_grade_raw = isset($_POST['user_grade']) ? sanitize_text_field(wp_unslash($_POST['user_grade'])) : '';
 
+            // Get current user ID before using it in generate_secure_filename
+            $user_id = get_current_user_id(); 
+
             // Generate filename using the security class, passing raw-ish title and grade
             $filename = $security->generate_secure_filename($user_id, $passage_title_raw, $user_grade_raw, 'wav');
 
@@ -330,8 +306,6 @@ class RA_Public {
             $upload_dir = wp_upload_dir();
             $year = date('Y');
             $month = date('m');
-            // Get current user ID
-            $user_id = get_current_user_id(); 
             // The user_grade is already sanitized and available from previous steps
 
             $target_dir = $upload_dir['basedir'] . '/reading-assessment/' . $year . '/' . $month;
@@ -342,8 +316,43 @@ class RA_Public {
             }
 
             $file_path = $target_dir . '/' . $filename;
+
+            // Check for file upload errors before moving
+            if (!isset($_FILES['audio_file'])) {
+                throw new Exception(__('No file data received in request.', 'reading-assessment'));
+            }
+
+            if ($_FILES['audio_file']['error'] !== UPLOAD_ERR_OK) {
+                $upload_errors = [
+                    UPLOAD_ERR_INI_SIZE   => __('The uploaded file exceeds the upload_max_filesize directive in php.ini.', 'reading-assessment'),
+                    UPLOAD_ERR_FORM_SIZE  => __('The uploaded file exceeds the MAX_FILE_SIZE directive that was specified in the HTML form.', 'reading-assessment'),
+                    UPLOAD_ERR_PARTIAL    => __('The uploaded file was only partially uploaded.', 'reading-assessment'),
+                    UPLOAD_ERR_NO_FILE    => __('No file was uploaded.', 'reading-assessment'),
+                    UPLOAD_ERR_NO_TMP_DIR => __('Missing a temporary folder on the server.', 'reading-assessment'),
+                    UPLOAD_ERR_CANT_WRITE => __('Failed to write file to disk on the server.', 'reading-assessment'),
+                    UPLOAD_ERR_EXTENSION  => __('A PHP extension stopped the file upload.', 'reading-assessment'),
+                ];
+                $error_code = $_FILES['audio_file']['error'];
+                $error_message = isset($upload_errors[$error_code]) ? $upload_errors[$error_code] : __('Unknown upload error.', 'reading-assessment');
+                throw new Exception($error_message . ' (Error code: ' . $error_code . ')');
+            }
+            
+            // Ensure the uploaded file is a valid uploaded file
+            if (!is_uploaded_file($_FILES['audio_file']['tmp_name'])) {
+                // This can happen if the file is too large and PHP discards it silently, or other tampering.
+                // $_FILES['audio_file']['tmp_name'] might not be set or might be empty if post_max_size is exceeded.
+                // Or if UPLOAD_ERR_INI_SIZE or UPLOAD_ERR_FORM_SIZE occurred, tmp_name might be empty.
+                error_log('RA Save Recording: is_uploaded_file check failed for ' . print_r($_FILES['audio_file'], true));
+                throw new Exception(__('Invalid upload: The file was not recognized as a valid uploaded file. This could be due to exceeding post_max_size or other server-side issues.', 'reading-assessment'));
+            }
+
             if (!move_uploaded_file($_FILES['audio_file']['tmp_name'], $file_path)) {
-                throw new Exception(__('Failed to save file', 'reading-assessment'));
+                // Log details to help debug why move_uploaded_file failed
+                $last_error = error_get_last();
+                $error_details = $last_error ? ' Last PHP error: ' . $last_error['message'] : '';
+                $debug_info = ' Target: ' . $file_path . '. Temp file exists: ' . (file_exists($_FILES['audio_file']['tmp_name']) ? 'yes' : 'no') . '. Target dir writable: ' . (is_writable($target_dir) ? 'yes' : 'no') . '.';
+                error_log('RA Save Recording: move_uploaded_file failed.' . $debug_info . $error_details);
+                throw new Exception(__('Failed to save file. Please check server error logs and directory permissions.', 'reading-assessment'));
             }
 
             // Set proper file permissions
@@ -353,7 +362,7 @@ class RA_Public {
             $result = $wpdb->insert(
                 $wpdb->prefix . 'ra_recordings',
                 [
-                    'user_id' => get_current_user_id(),
+                    'user_id' => $user_id,
                     'passage_id' => $passage_id,
                     'user_grade' => $user_grade_raw, 
                     'audio_file_path' => '/reading-assessment/' . $year . '/' . $month . '/' . $filename, // Ensure this path matches how files are stored and retrieved
