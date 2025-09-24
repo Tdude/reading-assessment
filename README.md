@@ -8,15 +8,10 @@ You can run it as-is or hook up Groq and/or OpenAI's Whisper to get decent evalu
 Attach Gemini as a backup AI or use it for re-evaluating sound? 3 lines of code...?
 https://ai.google.dev/gemini-api/docs/openai
 
-## Claude AI 2024 evaluation
+## @TODO: Refactor JS
 
-Looking at your admin.js code and the associated PHP files, there's definitely an opportunity to create a more generic and maintainable solution.
+Regarding admin.js, there's definitely an opportunity to create a more generic and maintainable solution.
 
-Then a 2025 Copilot description:
-
-# Reading Assessment
-
-**Reading Assessment** is a plugin for recording and evaluating reading comprehension. It allows administrators to assign reading passages to users and evaluate their comprehension through audio recordings and questions.
 
 ## Features
 
@@ -91,4 +86,4 @@ This plugin is licensed under the GPL v2 or later.
 
 For support, please open an issue in the GitHub repository or contact the author.
 
-I all else fails you know the drill: look around the web, learn a bunch of stuff resulting in 999 open tabs. Then resort to asking an AI and you're back to bug solving your quick and dirty code again :) Rinse and repeat.
+If all else fails you know the drill: look around the web, learn a bunch of stuff resulting in 999 open tabs. Then resort to asking an AI and you're back to bug solving your quick and dirty code again :) Rinse and repeat.
