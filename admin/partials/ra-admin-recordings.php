@@ -5,7 +5,7 @@
 if (!defined('WPINC')) {
     die;
 }
-$debug_mode = WP_DEBUG && current_user_can('manage_options');
+$debug_mode = WP_DEBUG && current_user_can('edit_posts');
 $ra_db = new RA_Database();
 $passages = $ra_db->get_all_passages();
 

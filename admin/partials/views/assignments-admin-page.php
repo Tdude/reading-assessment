@@ -10,7 +10,7 @@ if (!defined('WPINC')) {
 }
 
 // Security check
-if (!current_user_can('manage_options')) {
+if (!current_user_can('edit_posts')) {
     wp_die(__('You do not have sufficient permissions to access this page.'));
 }
 

@@ -163,7 +163,7 @@ class RA_Admin {
         add_menu_page(
             __('Läsuppskattning', 'reading-assessment'),
             __('LäsUppSkattning', 'reading-assessment'),
-            'manage_options',
+            'edit_posts',
             'reading-assessment',
             array($this->dashboard_admin, 'render_page'),
             'dashicons-welcome-learn-more',
@@ -174,7 +174,7 @@ class RA_Admin {
             'reading-assessment',
             __('Texter', 'reading-assessment'),
             __('Texter', 'reading-assessment'),
-            'manage_options',
+            'edit_posts',
             'reading-assessment-passages',
             [$this, 'render_passages_page']
         );
@@ -183,7 +183,7 @@ class RA_Admin {
             'reading-assessment',
             __('Frågor', 'reading-assessment'),
             __('Frågor', 'reading-assessment'),
-            'manage_options',
+            'edit_posts',
             'reading-assessment-questions',
             array($this->questions_admin, 'render_page')
         );
@@ -192,7 +192,7 @@ class RA_Admin {
             'reading-assessment',
             __('Tilldelningar av text', 'reading-assessment'),
             __('Tilldelningar', 'reading-assessment'),
-            'manage_options',
+            'edit_posts',
             'reading-assessment-assignments',
             array($this->assignments_admin, 'render_page')
         );
@@ -201,7 +201,7 @@ class RA_Admin {
             'reading-assessment',
             __('Ännu en resultatsida', 'reading-assessment'),
             __('Resultat', 'reading-assessment'),
-            'manage_options',
+            'edit_posts',
             'reading-assessment-results',
             [$this, 'render_results_page']
         );
@@ -209,7 +209,7 @@ class RA_Admin {
             'reading-assessment',
             __('Hantera inspelningar', 'reading-assessment'),
             __('Inspelningar', 'reading-assessment'),
-            'manage_options',
+            'edit_posts',
             'reading-assessment-recordings',
             [$this, 'render_recordings_page']
         );
@@ -219,7 +219,7 @@ class RA_Admin {
             'reading-assessment',
             __('AI Utvärderingar', 'reading-assessment'),
             __('AI Utvärderingar', 'reading-assessment'),
-            'manage_options',
+            'edit_posts',
             'reading-assessment-ai-evaluations',
             array($this->ai_evaluations_admin, 'render_page')
         );
@@ -228,7 +228,7 @@ class RA_Admin {
             'reading-assessment',
             __('Hantera inställningar', 'reading-assessment'),
             __('Inställningar', 'reading-assessment'),
-            'manage_options',
+            'edit_posts',
             'reading-assessment-settings',
             [$this, 'render_settings_page']
         );
@@ -241,7 +241,7 @@ class RA_Admin {
                 'reading-assessment',
                 __('Reparera inspelningar', 'reading-assessment'),
                 __('Reparera', 'reading-assessment'),
-                'manage_options',
+                'edit_posts',
                 'reading-assessment-repair',
                 [$this, 'render_repair_page']
             );
@@ -313,7 +313,7 @@ class RA_Admin {
 
     public function ajax_get_passage() {
         error_log('ajax_get_passage called');
-        if (!current_user_can('manage_options')) {
+        if (!current_user_can('edit_posts')) {
             error_log('Permission denied');
             wp_send_json_error(['message' => __('Permission denied', 'reading-assessment')]);
         }
@@ -337,7 +337,7 @@ class RA_Admin {
             ob_end_clean();
         }
 
-        if (!current_user_can('manage_options')) {
+        if (!current_user_can('edit_posts')) {
             error_log('Permission denied');
             wp_send_json_error(['message' => __('Permission denied', 'reading-assessment')]);
             exit;
@@ -374,7 +374,7 @@ class RA_Admin {
     }
 
     public function ajax_delete_question() {
-        if (!current_user_can('manage_options')) {
+        if (!current_user_can('edit_posts')) {
             wp_send_json_error(['message' => __('Permission denied.', 'reading-assessment')]);
         }
 
@@ -398,7 +398,7 @@ class RA_Admin {
                 return;
             }
 
-            if (!current_user_can('manage_options')) {
+            if (!current_user_can('edit_posts')) {
                 wp_send_json_error(['message' => 'Permission denied']);
                 return;
             }
@@ -484,7 +484,7 @@ class RA_Admin {
             exit;
         }
 
-        if (!current_user_can('manage_options')) {
+        if (!current_user_can('edit_posts')) {
             error_log('Permission check failed');
             wp_send_json_error(['message' => __('Permission denied', 'reading-assessment')]);
             exit;
@@ -547,7 +547,7 @@ class RA_Admin {
             exit;
         }
 
-        if (!current_user_can('manage_options')) {
+        if (!current_user_can('edit_posts')) {
             wp_send_json_error(['message' => __('Permission denied', 'reading-assessment')]);
             exit;
         }
@@ -596,7 +596,7 @@ class RA_Admin {
             wp_send_json_error(['message' => __('Security check failed', 'reading-assessment')]);
         }
 
-        if (!current_user_can('manage_options') || !get_option('ra_enable_tracking', true)) {
+        if (!current_user_can('edit_posts') || !get_option('ra_enable_tracking', true)) {
             wp_send_json_error(['message' => 'Tracking disabled or permission denied']);
             return;
         }
@@ -650,7 +650,7 @@ class RA_Admin {
             wp_send_json_error(['message' => __('Security check failed', 'reading-assessment')]);
         }
 
-        if (!current_user_can('manage_options')) {
+        if (!current_user_can('edit_posts')) {
             wp_send_json_error(['message' => __('Permission denied', 'reading-assessment')]);
         }
 
@@ -689,7 +689,7 @@ class RA_Admin {
             exit;
         }
 
-        if (!current_user_can('manage_options')) {
+        if (!current_user_can('edit_posts')) {
             error_log('Permission check failed in trigger_processing');
             wp_send_json_error(['message' => __('Permission denied', 'reading-assessment')]);
             exit;
